@@ -315,3 +315,4 @@ class TrafficCharts {
 }
 
 window.trafficCharts = new TrafficCharts();
+

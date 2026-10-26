@@ -8,3 +8,11 @@ htmlcov/
 venv/
 .venv/
 
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup folder
+_backup_original/
+
