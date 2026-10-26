@@ -21,6 +21,7 @@
       <a class="nav active" href="#overview">▦ &nbsp; Overview</a>
       <a class="nav" href="#scenarios">⚡ &nbsp; Scenarios</a>
       <a class="nav" href="#junctions">⌘ &nbsp; Intersections <b>04</b></a>
+      <a class="nav" href="#analytics-section">📈 &nbsp; Analytics &amp; DB</a>
       <a class="nav" href="#events">◷ &nbsp; Event Log</a>
       
       <div class="sidebottom">
@@ -28,6 +29,7 @@
         <b>Simulation Engine</b>
         <small id="engine">Running normally</small>
         <div class="seed-badge" id="seed-badge">Seed: Dynamic</div>
+        <div class="session-badge" id="session-badge" title="Active SQLite Session ID">Session: Loading...</div>
         <p>100% SOFTWARE-BASED<br>NO PHYSICAL SENSORS OR HARDWARE</p>
       </div>
     </aside>
@@ -39,7 +41,7 @@
         <div>
           <div class="eyebrow">ACADEMIC SIMULATION / ADAPTIVE CONTROL LAB</div>
           <h1>Intelligent Traffic Management System</h1>
-          <p class="muted">Software-based IoT queue simulation, 3-phase signal control, and transparent priority optimization.</p>
+          <p class="muted">Software-based IoT queue simulation, 3-phase signal control, and persistent SQLite telemetry.</p>
         </div>
         <div class="headright">
           <span class="live" id="live-pill">
@@ -79,7 +81,7 @@
             </div>
             <strong id="passed">—</strong>
             <p>Vehicles processed</p>
-            <small class="foot">● Cumulative simulated departures</small>
+            <small class="foot">● Cumulative departures</small>
           </article>
 
           <article>
@@ -161,13 +163,115 @@
         <div class="junctions" id="junction-grid"></div>
       </section>
 
+      <!-- Persistent Storage & Comparative Analytics Section -->
+      <section id="analytics-section">
+        <div class="sectionhead">
+          <div>
+            <h2>Verifiable Analytics &amp; Baseline Benchmarking (SQLite Persistent Data)</h2>
+            <p class="muted">Metrics calculated strictly from persistent SQLite tables across sessions</p>
+          </div>
+          <div class="db-actions">
+            <button class="btn secondary mini-btn" id="db-reset-btn" title="Wipe development database tables">Reset DB</button>
+          </div>
+        </div>
+
+        <!-- Analytics Metric Cards -->
+        <div class="analytics-cards">
+          <article class="analytics-card">
+            <small>DB AVERAGE WAIT TIME</small>
+            <strong id="db-avg-wait">—</strong>
+            <p>Mean vehicle delay from recorded snapshots</p>
+            <small class="foot" id="db-samples">0 samples</small>
+          </article>
+
+          <article class="analytics-card">
+            <small>DB AVERAGE QUEUE</small>
+            <strong id="db-avg-queue">—</strong>
+            <p>Mean vehicles queued per intersection</p>
+            <small class="foot" id="db-peak-queue">Peak: 0</small>
+          </article>
+
+          <article class="analytics-card">
+            <small>CONGESTION BREAKDOWN</small>
+            <div class="cong-bars">
+              <div><small>Low:</small> <b id="cong-low">0%</b></div>
+              <div><small>Moderate:</small> <b id="cong-mod">0%</b></div>
+              <div><small>Heavy:</small> <b id="cong-heavy">0%</b></div>
+            </div>
+            <small class="foot">● State distribution</small>
+          </article>
+        </div>
+
+        <!-- Side-by-Side Baseline Comparison Benchmark Card -->
+        <article class="benchmark-card">
+          <div class="bench-head">
+            <div>
+              <h3>Comparative Benchmark: Fixed-Time Baseline vs. Adaptive Signal Optimization</h3>
+              <p class="muted">Runs equal-duration reproducible simulation runs with identical random seeds to prove empirical performance gains.</p>
+            </div>
+            <button class="btn primary" id="run-benchmark-btn">⚡ Run 60s Benchmark Comparison</button>
+          </div>
+
+          <div id="benchmark-results" class="benchmark-results" style="display: none;">
+            <div class="bench-grid">
+              <div class="bench-col fixed-col">
+                <h4>Fixed-Time Baseline (Round-Robin)</h4>
+                <div class="bench-metric">
+                  <span>Average Delay:</span>
+                  <b id="bench-f-wait">—</b>
+                </div>
+                <div class="bench-metric">
+                  <span>Throughput Cleared:</span>
+                  <b id="bench-f-thru">—</b>
+                </div>
+                <div class="bench-metric">
+                  <span>Average Queue:</span>
+                  <b id="bench-f-queue">—</b>
+                </div>
+              </div>
+
+              <div class="bench-vs">VS</div>
+
+              <div class="bench-col adaptive-col">
+                <h4>Adaptive Signal Optimization</h4>
+                <div class="bench-metric">
+                  <span>Average Delay:</span>
+                  <b id="bench-a-wait">—</b>
+                </div>
+                <div class="bench-metric">
+                  <span>Throughput Cleared:</span>
+                  <b id="bench-a-thru">—</b>
+                </div>
+                <div class="bench-metric">
+                  <span>Average Queue:</span>
+                  <b id="bench-a-queue">—</b>
+                </div>
+              </div>
+
+              <div class="bench-col summary-col">
+                <h4>Empirical Improvement</h4>
+                <div class="gain-badge green" id="bench-gain-wait">
+                  <span>Delay Reduction:</span>
+                  <b>—</b>
+                </div>
+                <div class="gain-badge blue" id="bench-gain-thru">
+                  <span>Throughput Gain:</span>
+                  <b>—</b>
+                </div>
+                <small class="bench-note" id="bench-seed-note">Seed 42 · Medium Traffic · 60 ticks</small>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
       <!-- Settings & Activity Panels -->
       <section class="bottom">
         <!-- Adaptive Timing Rules Form -->
         <article class="panel">
           <div class="panelhead">
             <div>
-              <h3>Adaptive timing &amp; Flow Parameters</h3>
+              <h3>Adaptive Timing &amp; Flow Parameters</h3>
               <p class="muted">Configurable green boundaries and arrival rate multipliers</p>
             </div>
             <span>⚙</span>
@@ -217,7 +321,7 @@
       <!-- Footer Disclaimer -->
       <footer>
         <b>TRAFFIC<span>IQ</span> · Intelligent Traffic Management System</b>
-        <small>100% SOFTWARE-BASED IOT &amp; TRAFFIC SIMULATION · ACADEMIC CLASSROOM USE ONLY · NOT FOR REAL-WORLD ROAD CONTROL</small>
+        <small>100% SOFTWARE-BASED IOT &amp; TRAFFIC SIMULATION · PERSISTENT SQLITE DATABASE · ACADEMIC CLASSROOM USE ONLY · NOT FOR REAL-WORLD ROAD CONTROL</small>
       </footer>
     </main>
   </div>

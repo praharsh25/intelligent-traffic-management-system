@@ -11,6 +11,7 @@ Features:
 - Safe conflict prevention: at no point can conflicting directions hold GREEN or YELLOW.
 - Safe manual override and seamless restoration of automated adaptive control.
 - Deterministic pseudo-randomness when seeded for repeatable viva exam demonstrations.
+- Full SQLite persistence: sessions, intersection snapshots, lane metrics, signal transitions, and audit events.
 """
 
 from datetime import datetime
@@ -19,6 +20,7 @@ import random
 import threading
 import time
 from typing import Any, Dict, List, Optional
+import uuid
 
 from config import (
     DEFAULT_JUNCTIONS,
@@ -31,6 +33,8 @@ from config import (
 )
 from core.models import Junction, LaneState, SimulationEvent
 from core.signal_optimizer import SignalOptimizer
+from database.connection import init_db
+from database.repository import TrafficRepository
 
 logger = logging.getLogger("traffic_system.engine")
 
@@ -45,6 +49,7 @@ class SimulationEngine:
         tick_interval: float = SIMULATION_DEFAULTS["tick_interval_seconds"],
         speed: float = SIMULATION_DEFAULTS["default_speed"],
         scenario: str = SIMULATION_DEFAULTS["default_scenario"],
+        db_path: Optional[str] = None,
     ):
         self.lock = threading.RLock()
         self.tick_interval = tick_interval
@@ -53,11 +58,20 @@ class SimulationEngine:
         self.current_seed = seed
         self.rng = random.Random(seed) if seed is not None else random.Random()
 
+        # Database repository initialization
+        self.db_path = db_path
+        try:
+            init_db(self.db_path)
+        except Exception as e:
+            logger.warning(f"Database initialization warning: {e}")
+        self.repo = TrafficRepository(self.db_path)
+
         # Operational state
         self.running: bool = True
         self.auto_mode: bool = True
         self.tick: int = 0
         self.last_updated: str = datetime.now().isoformat(timespec="seconds")
+        self.session_id: str = f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
 
         # Scenario & Flow parameters
         self.scenario: str = scenario if scenario in SCENARIOS else "medium"
@@ -78,10 +92,22 @@ class SimulationEngine:
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
 
+        # Register session in SQLite
+        self.repo.create_session(
+            session_id=self.session_id,
+            control_mode="adaptive" if self.auto_mode else "manual",
+            scenario=self.scenario,
+            seed=self.current_seed,
+            arrival_multiplier=self.arrival_multiplier,
+            min_green=self.settings["min_green"],
+            max_green=self.settings["max_green"],
+        )
+
         # Initialize network state
         self._init_network()
         self.add_event(
-            f"Traffic simulation initialized (Scenario: {SCENARIOS[self.scenario]['name']}, "
+            f"Traffic simulation initialized (Session: {self.session_id}, "
+            f"Scenario: {SCENARIOS[self.scenario]['name']}, "
             f"Seed: {self.current_seed if self.current_seed is not None else 'Dynamic'}).",
             kind="success",
         )
@@ -124,18 +150,28 @@ class SimulationEngine:
                 item["id"]: self._create_junction(item, idx)
                 for idx, item in enumerate(DEFAULT_JUNCTIONS)
             }
-            # Initial score calculation
             for j in self.junctions.values():
                 self.optimizer.update_all_scores(j, self.rng)
 
     def add_event(self, message: str, kind: str = "info", junction: Optional[str] = None) -> None:
-        """Records a timestamped audit event."""
+        """Records a timestamped audit event in memory and persists to SQLite."""
         with self.lock:
             evt = SimulationEvent(message=message, kind=kind, junction=junction)
             self.events.insert(0, evt)
             limit = SIMULATION_DEFAULTS["event_history_limit"]
             if len(self.events) > limit:
                 del self.events[limit:]
+
+            # Persist to database
+            now_iso = datetime.now().isoformat(timespec="seconds")
+            self.repo.record_audit_event(
+                session_id=self.session_id,
+                tick=self.tick,
+                timestamp=now_iso,
+                kind=kind,
+                message=message,
+                junction_id=junction,
+            )
 
     def set_scenario(
         self,
@@ -156,7 +192,6 @@ class SimulationEngine:
                 d = target_direction if target_direction in DIRECTIONS else "North"
                 self.trigger_emergency(jid, d)
             else:
-                # Clear existing emergencies if switching to a normal scenario
                 for j in self.junctions.values():
                     for l in j.lanes.values():
                         l.is_emergency = False
@@ -178,7 +213,6 @@ class SimulationEngine:
             j = self.junctions[junction_id]
             lane = j.lanes[direction]
             lane.is_emergency = True
-            # Add emergency vehicle to queue if empty
             lane.vehicles = max(1, lane.vehicles)
             j.update_totals()
 
@@ -192,7 +226,7 @@ class SimulationEngine:
             # If another direction has green, truncate remaining green to trigger immediate yellow clearance
             if j.active_direction != direction and j.current_phase == SIGNAL_PHASES["GREEN"]:
                 if j.phase_remaining > 2:
-                    j.phase_remaining = 1  # will trigger yellow next second
+                    j.phase_remaining = 1
 
             return True
 
@@ -207,8 +241,11 @@ class SimulationEngine:
             return True
 
     def reset(self, seed: Optional[int] = None) -> None:
-        """Resets the simulation to initial conditions with optional new seed."""
+        """Resets the simulation to initial conditions and starts a fresh database session."""
         with self.lock:
+            # Conclude previous session in DB
+            self.repo.close_session(self.session_id)
+
             if seed is not None:
                 self.current_seed = seed
                 self.rng = random.Random(seed)
@@ -222,10 +259,23 @@ class SimulationEngine:
             self.tick = 0
             self.running = True
             self.auto_mode = True
+            self.session_id = f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+
+            # Create new session in SQLite
+            self.repo.create_session(
+                session_id=self.session_id,
+                control_mode="adaptive",
+                scenario=self.scenario,
+                seed=self.current_seed,
+                arrival_multiplier=self.arrival_multiplier,
+                min_green=self.settings["min_green"],
+                max_green=self.settings["max_green"],
+            )
+
             self._init_network()
             self.events.clear()
             seed_label = f"Seed {self.current_seed}" if self.current_seed is not None else "Dynamic Seed"
-            self.add_event(f"Simulation reset to initial conditions ({seed_label}).", "success")
+            self.add_event(f"Simulation reset to initial conditions ({seed_label}, Session {self.session_id}).", "success")
             self.last_updated = datetime.now().isoformat(timespec="seconds")
 
     def _generate_arrivals(self, direction: str, is_active: bool) -> int:
@@ -233,19 +283,18 @@ class SimulationEngine:
         weights = SCENARIOS[self.scenario]["arrival_weights"]
         base_arrivals = self.rng.choices([0, 1, 2, 3], weights=weights)[0]
 
-        # Tidal peak-hour bias: heavier arrivals on North-South arterial corridor
         if self.scenario == "peak_hour" and direction in ["North", "South"]:
             if self.rng.random() < 0.60:
                 base_arrivals += 1
 
-        # Apply user/scenario multiplier
         adjusted = int(round(base_arrivals * self.arrival_multiplier))
         return max(0, min(4, adjusted))
 
     def step(self) -> None:
-        """Advances the simulation by one atomic discrete time step (1 second)."""
+        """Advances the simulation by one atomic discrete time step (1 second) and logs to database."""
         with self.lock:
             self.tick += 1
+            now_iso = datetime.now().isoformat(timespec="seconds")
             max_capacity = SIMULATION_DEFAULTS["max_lane_capacity"]
             yellow_dur = self.settings.get("yellow_duration", SAFETY_INTERVALS["yellow_duration"])
             all_red_dur = self.settings.get("all_red_duration", SAFETY_INTERVALS["all_red_duration"])
@@ -256,21 +305,16 @@ class SimulationEngine:
 
                 # 1. Update vehicle queues and arrivals on each lane
                 for d, lane in j.lanes.items():
-                    # Generate arrivals
                     arrivals = self._generate_arrivals(d, d == active_dir)
                     lane.vehicles = min(max_capacity, lane.vehicles + arrivals)
 
-                    # Manage waiting times and departure dynamics based on current phase
                     if phase == SIGNAL_PHASES["GREEN"] and d == active_dir:
-                        # Green lane: discharge queued vehicles
                         departures = min(lane.vehicles, self.rng.randint(2, 5))
                         lane.vehicles = max(0, lane.vehicles - departures)
                         lane.total_passed += departures
-                        # Relieve waiting counter
                         lane.waiting = max(0, lane.waiting - departures)
                         lane.waiting_seconds = max(0.0, lane.waiting_seconds - (departures * 3.0))
                         lane.cycles_without_green = 0
-                        # Clear emergency flag once cleared
                         if lane.is_emergency and lane.vehicles <= 2:
                             lane.is_emergency = False
                             self.add_event(
@@ -279,29 +323,25 @@ class SimulationEngine:
                                 junction=j.id,
                             )
                     elif phase == SIGNAL_PHASES["YELLOW"] and d == active_dir:
-                        # Yellow phase: minor late clearance (0 to 1 vehicle)
                         if lane.vehicles > 0 and self.rng.random() < 0.4:
                             lane.vehicles -= 1
                             lane.total_passed += 1
                     else:
-                        # Red lanes / clearance: stopped vehicles accumulate waiting time
                         if lane.vehicles > 0:
                             lane.waiting = min(lane.vehicles, lane.waiting + 1)
                             lane.waiting_seconds += 1.0
 
-                # 2. Update phase countdown and handle transitions
+                # 2. Update phase countdown
                 j.phase_remaining = max(0, j.phase_remaining - 1)
                 active_lane = j.lanes[active_dir]
                 if phase == SIGNAL_PHASES["GREEN"]:
                     active_lane.green_remaining = j.phase_remaining
 
-                # Invariant safety assertion: ensure conflict-free state
                 assert self.optimizer.verify_conflict_free(j), f"Safety violation detected at junction {j.id}!"
 
                 # 3. Explicit Phase State Machine Transitions (in auto_mode)
                 if self.auto_mode and self.running:
                     if phase == SIGNAL_PHASES["GREEN"] and j.phase_remaining <= 0:
-                        # Green phase expired -> Plan next direction
                         next_dir, planned_green = self.optimizer.plan_next_phase(
                             junction=j,
                             min_green=self.settings["min_green"],
@@ -309,13 +349,11 @@ class SimulationEngine:
                             rng=self.rng,
                         )
 
-                        # If next direction is the same as current (high demand on same lane and others zero)
                         if next_dir == active_dir and not any(l.is_emergency for l in j.lanes.values()):
                             j.phase_remaining = planned_green
                             active_lane.green_remaining = planned_green
                             j.cycle += 1
                         else:
-                            # Transition GREEN -> YELLOW (amber clearance)
                             j.current_phase = SIGNAL_PHASES["YELLOW"]
                             j.phase_remaining = yellow_dur
                             j.next_direction = next_dir
@@ -326,19 +364,41 @@ class SimulationEngine:
                                 kind="signal",
                                 junction=j.id,
                             )
+                            # Log phase transition
+                            self.repo.record_signal_phase_log(
+                                session_id=self.session_id,
+                                tick=self.tick,
+                                timestamp=now_iso,
+                                junction_id=j.id,
+                                from_phase="GREEN",
+                                to_phase="YELLOW",
+                                active_direction=active_dir,
+                                duration_seconds=yellow_dur,
+                                reason="YELLOW_CLEARANCE",
+                            )
 
                     elif phase == SIGNAL_PHASES["YELLOW"] and j.phase_remaining <= 0:
-                        # Yellow expired -> Transition YELLOW -> ALL_RED (safety box clearance)
                         j.current_phase = SIGNAL_PHASES["ALL_RED"]
                         j.phase_remaining = all_red_dur
                         active_lane.signal = SIGNAL_PHASES["RED"]
                         active_lane.green_remaining = 0
-                        # All lanes are now strictly RED
                         for l in j.lanes.values():
                             l.signal = SIGNAL_PHASES["RED"]
 
+                        # Log all-red phase transition
+                        self.repo.record_signal_phase_log(
+                            session_id=self.session_id,
+                            tick=self.tick,
+                            timestamp=now_iso,
+                            junction_id=j.id,
+                            from_phase="YELLOW",
+                            to_phase="ALL_RED",
+                            active_direction=active_dir,
+                            duration_seconds=all_red_dur,
+                            reason="ALL_RED_CLEARANCE",
+                        )
+
                     elif phase == SIGNAL_PHASES["ALL_RED"] and j.phase_remaining <= 0:
-                        # All-Red clearance expired -> Transition ALL_RED -> GREEN on next_direction
                         nxt = j.next_direction or active_dir
                         for d, l in j.lanes.items():
                             l.signal = SIGNAL_PHASES["RED"]
@@ -346,7 +406,6 @@ class SimulationEngine:
                             if d != nxt:
                                 l.cycles_without_green += 1
 
-                        # Calculate fresh duration for next direction
                         _, duration = self.optimizer.plan_next_phase(
                             junction=j,
                             min_green=self.settings["min_green"],
@@ -365,17 +424,46 @@ class SimulationEngine:
                         new_green_lane.green_remaining = duration
                         new_green_lane.cycles_without_green = 0
 
+                        reason = "EMERGENCY_PREEMPTION" if new_green_lane.is_emergency else "ADAPTIVE_QUEUE"
                         self.add_event(
                             f"{j.name}: green signal allocated to {nxt} ({duration}s).",
                             kind="signal",
                             junction=j.id,
                         )
+                        self.repo.record_signal_phase_log(
+                            session_id=self.session_id,
+                            tick=self.tick,
+                            timestamp=now_iso,
+                            junction_id=j.id,
+                            from_phase="ALL_RED",
+                            to_phase="GREEN",
+                            active_direction=nxt,
+                            duration_seconds=duration,
+                            reason=reason,
+                        )
 
-                # 4. Refresh scores and junction summaries
+                # 4. Refresh scores and totals
                 self.optimizer.update_all_scores(j, self.rng)
                 j.update_totals()
 
-            self.last_updated = datetime.now().isoformat(timespec="seconds")
+                # 5. Record snapshot to SQLite
+                self.repo.record_step_snapshot(
+                    session_id=self.session_id,
+                    tick=self.tick,
+                    timestamp=now_iso,
+                    junction_id=j.id,
+                    active_direction=j.active_direction,
+                    current_phase=j.current_phase,
+                    phase_remaining=j.phase_remaining,
+                    total_vehicles=j.total_vehicles,
+                    total_passed=j.total_passed,
+                    avg_wait_seconds=j.avg_wait_seconds,
+                    congestion_level=j.congestion,
+                    emergency_active=j.emergency_active,
+                    lanes_dict={d: l.to_dict() for d, l in j.lanes.items()},
+                )
+
+            self.last_updated = now_iso
 
     def manual_override(self, junction_id: str, direction: str) -> bool:
         """Manually commands a specific lane to receive the green signal safely."""
@@ -388,7 +476,6 @@ class SimulationEngine:
             j = self.junctions[junction_id]
             override_dur = TIMING_BOUNDS["manual_green_duration"]
 
-            # Safely set only the target direction to GREEN; all others strictly RED
             for d, lane in j.lanes.items():
                 if d == direction:
                     lane.signal = SIGNAL_PHASES["GREEN"]
@@ -411,6 +498,17 @@ class SimulationEngine:
                 f"Manual override: {j.name} commanded {direction} GREEN for {override_dur}s.",
                 kind="warning",
                 junction=j.id,
+            )
+            self.repo.record_signal_phase_log(
+                session_id=self.session_id,
+                tick=self.tick,
+                timestamp=datetime.now().isoformat(timespec="seconds"),
+                junction_id=j.id,
+                from_phase="MANUAL",
+                to_phase="GREEN",
+                active_direction=direction,
+                duration_seconds=override_dur,
+                reason="MANUAL_OVERRIDE",
             )
             return True
 
@@ -461,6 +559,7 @@ class SimulationEngine:
             heavy_count = sum(1 for j in j_list if j["congestion"] == "Heavy")
 
             return {
+                "session_id": self.session_id,
                 "running": self.running,
                 "auto_mode": self.auto_mode,
                 "tick": self.tick,
@@ -499,11 +598,15 @@ class SimulationEngine:
             logger.info("Simulation worker thread started.")
 
     def stop_worker(self) -> None:
-        """Signals worker thread to stop cleanly."""
+        """Signals worker thread to stop cleanly and closes database session."""
         self._stop_event.set()
         if self._worker_thread is not None and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=1.5)
             logger.info("Simulation worker thread stopped.")
+        try:
+            self.repo.close_session(self.session_id)
+        except Exception:
+            pass
 
     def _worker_loop(self) -> None:
         """Autonomous loop running ticks at the configured speed interval."""

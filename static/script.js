@@ -1,13 +1,14 @@
 /**
  * Intelligent Traffic Management System - Client Controller
  * Coordinates dashboard polling, UI updates, user controls, 3-phase signal display,
- * scenario switching, and REST API communication.
+ * scenario switching, persistent SQLite analytics, and REST API communication.
  */
 
 const $ = (id) => document.getElementById(id);
 let state = null;
 let toastTimer = null;
 let pollTimer = null;
+let analyticsTimer = null;
 
 // Sanitize text inputs for safe HTML insertion
 function esc(str) {
@@ -60,6 +61,13 @@ function updateDashboard(newState) {
   $('heavy').textContent = newState.summary.heavy;
   $('tick').textContent = newState.tick.toLocaleString();
   $('updated').textContent = new Date(newState.last_updated).toLocaleTimeString();
+
+  // Session ID badge
+  const sessionBadge = $('session-badge');
+  if (sessionBadge && newState.session_id) {
+    sessionBadge.textContent = `Session: ${newState.session_id}`;
+    sessionBadge.title = `Active SQLite Session: ${newState.session_id}`;
+  }
 
   // Engine Status & Speed
   const isRunning = newState.running;
@@ -330,6 +338,81 @@ async function fetchState() {
   }
 }
 
+// Fetch SQLite analytical summary
+async function fetchAnalyticsSummary() {
+  try {
+    const data = await apiCall('/api/analytics/summary');
+    if (data && data.has_data) {
+      $('db-avg-wait').textContent = `${data.avg_wait_seconds}s`;
+      $('db-avg-queue').textContent = `${data.avg_queue_length}`;
+      $('db-samples').textContent = `Based on ${data.total_samples} snapshots`;
+      $('db-peak-queue').textContent = `Peak Queue: ${data.peak_queue_length}`;
+      $('cong-low').textContent = `${data.congestion_distribution.Low}%`;
+      $('cong-mod').textContent = `${data.congestion_distribution.Moderate}%`;
+      $('cong-heavy').textContent = `${data.congestion_distribution.Heavy}%`;
+    }
+  } catch (err) {
+    // Graceful fallback if analytics fetch fails
+  }
+}
+
+// Run baseline comparison benchmark
+async function runBenchmark() {
+  const btn = $('run-benchmark-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Executing 60s Comparative Benchmark...';
+  showToast('Running side-by-side Fixed-Time vs Adaptive comparison...');
+
+  try {
+    const resp = await apiCall('/api/analytics/compare-baseline', {
+      duration_ticks: 60,
+      seed: 42,
+      scenario: 'medium',
+    });
+
+    const cmp = resp.comparison;
+    $('benchmark-results').style.display = 'block';
+
+    $('bench-f-wait').textContent = `${cmp.fixed_avg_wait}s`;
+    $('bench-f-thru').textContent = `${cmp.fixed_throughput} vehicles`;
+    $('bench-f-queue').textContent = `${cmp.fixed_avg_queue} avg`;
+
+    $('bench-a-wait').textContent = `${cmp.adaptive_avg_wait}s`;
+    $('bench-a-thru').textContent = `${cmp.adaptive_throughput} vehicles`;
+    $('bench-a-queue').textContent = `${cmp.adaptive_avg_queue} avg`;
+
+    const waitRed = cmp.wait_reduction_pct;
+    $('bench-gain-wait').querySelector('b').textContent = `${waitRed > 0 ? '▼ ' : ''}${waitRed}%`;
+    $('bench-gain-wait').className = `gain-badge ${waitRed >= 0 ? 'green' : 'red'}`;
+
+    const thruInc = cmp.throughput_increase_pct;
+    $('bench-gain-thru').querySelector('b').textContent = `${thruInc > 0 ? '▲ ' : ''}${thruInc}%`;
+    $('bench-gain-thru').className = `gain-badge ${thruInc >= 0 ? 'blue' : 'orange'}`;
+
+    $('bench-seed-note').textContent = `Comparison ${cmp.comparison_id} · Seed ${cmp.seed} · ${cmp.scenario} · ${cmp.duration_ticks} ticks`;
+    showToast('Benchmark completed and stored in SQLite database!');
+    fetchAnalyticsSummary();
+  } catch (err) {
+    showToast(`Benchmark failed: ${err.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Run 60s Benchmark Comparison';
+  }
+}
+
+// Database reset
+async function resetDatabase() {
+  if (!confirm('Clear all SQLite database tables and historical snapshots for fresh testing?')) return;
+  try {
+    await apiCall('/api/database/reset', {});
+    showToast('SQLite database re-initialized.');
+    fetchAnalyticsSummary();
+    fetchState();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
 // Dispatch high-level control action
 async function sendControl(action, extra = {}) {
   try {
@@ -344,6 +427,7 @@ async function sendControl(action, extra = {}) {
       speed: `Speed set to ${extra.speed}x.`,
     };
     showToast(msgs[action] || 'Command executed.');
+    fetchAnalyticsSummary();
   } catch (err) {
     showToast(err.message, true);
   }
@@ -400,7 +484,12 @@ $('flow').oninput = () => {
 $('auto').onclick = () => sendControl('auto');
 $('manual').onclick = () => sendControl('manual');
 $('pause').onclick = () => sendControl(state && state.running ? 'pause' : 'resume');
-$('refresh').onclick = fetchState;
+$('refresh').onclick = () => {
+  fetchState();
+  fetchAnalyticsSummary();
+};
+$('run-benchmark-btn').onclick = runBenchmark;
+$('db-reset-btn').onclick = resetDatabase;
 
 // Single manual step button
 $('step-btn').onclick = async () => {
@@ -408,6 +497,7 @@ $('step-btn').onclick = async () => {
     const data = await apiCall('/api/tick', {});
     updateDashboard(data);
     showToast('Simulation advanced by 1 step.');
+    fetchAnalyticsSummary();
   } catch (err) {
     showToast(err.message, true);
   }
@@ -418,7 +508,7 @@ $('reset').onclick = () => {
   const seedInput = prompt(
     'Reset simulation to initial state.\n\nOptionally enter an integer seed for repeatable exam demonstration (e.g., 42), or leave blank for dynamic seed:'
   );
-  if (seedInput === null) return; // cancelled
+  if (seedInput === null) return;
   const trimmed = seedInput.trim();
   const seed = trimmed === '' ? null : parseInt(trimmed, 10);
   if (trimmed !== '' && isNaN(seed)) {
@@ -458,13 +548,11 @@ $('settings').onsubmit = async (e) => {
     const maxVal = parseInt($('max').value, 10);
     const flowVal = parseFloat($('flow').value);
 
-    // Apply timing rules
     let data = await apiCall('/api/settings', {
       min_green: minVal,
       max_green: maxVal,
     });
 
-    // Apply flow rate multiplier
     data = await apiCall('/api/flow-rate', {
       multiplier: flowVal,
     });
@@ -476,11 +564,14 @@ $('settings').onsubmit = async (e) => {
   }
 };
 
-// Background polling loop (Decoupled: purely reads state without triggering tick)
+// Background polling loop
 function startPolling() {
   fetchState();
+  fetchAnalyticsSummary();
   clearInterval(pollTimer);
   pollTimer = setInterval(fetchState, 1000);
+  clearInterval(analyticsTimer);
+  analyticsTimer = setInterval(fetchAnalyticsSummary, 4000);
 }
 
 // Start application

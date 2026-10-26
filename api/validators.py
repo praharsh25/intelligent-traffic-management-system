@@ -172,3 +172,35 @@ def validate_settings_payload(
         return False, f"Minimum green ({min_green}s) cannot exceed maximum green ({max_green}s).", {}
 
     return True, None, {"min_green": min_green, "max_green": max_green}
+
+
+def validate_baseline_compare_payload(data: Any) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """Validates /api/analytics/compare-baseline payload."""
+    if not isinstance(data, dict):
+        return False, "Request body must be a JSON object.", {}
+
+    duration = data.get("duration_ticks", 60)
+    seed = data.get("seed", 42)
+    scenario = data.get("scenario", "medium")
+
+    try:
+        dur_val = int(duration)
+    except (TypeError, ValueError):
+        return False, "duration_ticks must be an integer.", {}
+
+    if not (15 <= dur_val <= 180):
+        return False, "duration_ticks must be between 15 and 180 ticks.", {}
+
+    try:
+        seed_val = int(seed)
+    except (TypeError, ValueError):
+        return False, "seed must be an integer.", {}
+
+    if scenario not in SCENARIOS:
+        return False, f"Invalid scenario '{scenario}'. Allowed: {list(SCENARIOS.keys())}.", {}
+
+    return True, None, {
+        "duration_ticks": dur_val,
+        "seed": seed_val,
+        "scenario": scenario,
+    }
