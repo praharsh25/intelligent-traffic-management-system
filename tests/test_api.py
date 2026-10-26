@@ -20,7 +20,7 @@ def test_index_route(test_client):
     res = client.get("/")
     assert res.status_code == 200
     assert b"TrafficIQ" in res.data
-    assert b"SOFTWARE SIMULATION" in res.data
+    assert b"100% SOFTWARE-BASED" in res.data
 
 
 def test_health_endpoint(test_client):
@@ -42,6 +42,11 @@ def test_state_endpoint(test_client):
     assert "intersections" in data
     assert len(data["intersections"]) == 4
     assert data["summary"]["vehicles"] >= 0
+    # Verify explicit phase and priority score fields
+    j1 = data["intersections"][0]
+    assert "current_phase" in j1
+    assert "lanes" in j1
+    assert "priority_score" in j1["lanes"]["North"]
 
 
 def test_tick_endpoint(test_client):
@@ -99,6 +104,46 @@ def test_control_speed_and_reset(test_client):
     data = res.get_json()
     assert data["tick"] == 0
     assert data["seed"] == 42
+
+
+def test_scenario_api(test_client):
+    client, _ = test_client
+
+    # Set High scenario
+    res = client.post("/api/scenario", json={"scenario": "high"})
+    assert res.status_code == 200
+    assert res.get_json()["scenario"] == "high"
+
+    # Set Low scenario
+    res = client.post("/api/scenario", json={"scenario": "low"})
+    assert res.status_code == 200
+    assert res.get_json()["scenario"] == "low"
+
+    # Invalid scenario
+    res = client.post("/api/scenario", json={"scenario": "flying_cars"})
+    assert res.status_code == 400
+
+
+def test_emergency_api(test_client):
+    client, _ = test_client
+    res = client.post("/api/emergency", json={"junction": "J1", "direction": "North"})
+    assert res.status_code == 200
+    j1 = next(j for j in res.get_json()["intersections"] if j["id"] == "J1")
+    assert j1["emergency_active"] is True
+    assert j1["lanes"]["North"]["is_emergency"] is True
+
+
+def test_flow_rate_api(test_client):
+    client, _ = test_client
+
+    # Valid multiplier
+    res = client.post("/api/flow-rate", json={"multiplier": 1.5})
+    assert res.status_code == 200
+    assert res.get_json()["arrival_multiplier"] == 1.5
+
+    # Out of range multiplier
+    res = client.post("/api/flow-rate", json={"multiplier": 10.0})
+    assert res.status_code == 400
 
 
 def test_signal_override(test_client):

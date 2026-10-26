@@ -66,3 +66,4 @@ def test_simulation_event_to_dict():
     assert d["kind"] == "signal"
     assert d["junction"] == "J1"
     assert "time" in d
+

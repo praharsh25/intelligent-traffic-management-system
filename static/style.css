@@ -168,7 +168,7 @@ header {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .eyebrow {
@@ -292,7 +292,8 @@ h3 {
 
 .metrics article,
 .panel,
-.junction {
+.junction,
+.scenario-bar {
   background: white;
   border: 1px solid var(--line);
   border-radius: 13px;
@@ -369,6 +370,63 @@ h3 {
   color: #96a0b0;
 }
 
+/* Scenario Bar */
+.scenario-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  margin: 18px 0;
+  background: #ffffff;
+}
+
+.scenario-info b {
+  font-size: 12px;
+  color: #1b283f;
+  margin-right: 8px;
+}
+
+.scenario-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scen-btn {
+  border: 1px solid #dce2ed;
+  background: #f7f9fd;
+  color: #556277;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font: 700 11px 'DM Sans';
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.scen-btn:hover {
+  background: #edf2fb;
+  border-color: #bccbe6;
+}
+
+.scen-btn.selected {
+  background: #3569e8;
+  color: white;
+  border-color: #3569e8;
+  box-shadow: 0 2px 6px #3569e833;
+}
+
+.emergency-btn {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.emergency-btn:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
 /* Control Toolbar */
 .controls {
   display: flex;
@@ -378,7 +436,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 13px;
   padding: 14px 17px;
-  margin: 22px 0 28px;
+  margin: 18px 0 26px;
 }
 
 .controlcopy {
@@ -489,16 +547,20 @@ h3 {
 
 .legend {
   font-size: 10px;
-  color: #8490a2;
   display: flex;
   gap: 12px;
+  font-weight: 600;
 }
 
-.legend span:first-child {
-  color: #17a673;
+.leg-green {
+  color: #16996a;
 }
 
-.legend span:last-child {
+.leg-yellow {
+  color: #d97706;
+}
+
+.leg-red {
   color: #ee5967;
 }
 
@@ -511,13 +573,14 @@ h3 {
 }
 
 .junction {
-  padding: 17px;
+  padding: 18px;
   min-width: 0;
 }
 
 .jhead {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -549,13 +612,19 @@ h3 {
   margin-top: 4px;
 }
 
+.jbadges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .badge {
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 5px;
   font-size: 9px;
   font-weight: 800;
   white-space: nowrap;
-  height: max-content;
 }
 
 .badge.low {
@@ -573,10 +642,42 @@ h3 {
   color: #d44e5c;
 }
 
+.phase-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.phase-pill.GREEN {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.phase-pill.YELLOW {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  animation: blink 1s infinite alternate;
+}
+
+.phase-pill.ALL_RED {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.65; }
+}
+
 .jstats {
   display: flex;
-  gap: 22px;
-  padding: 14px 0 11px;
+  gap: 18px;
+  padding: 12px 0 10px;
   border-bottom: 1px solid #edf0f5;
 }
 
@@ -587,9 +688,9 @@ h3 {
 
 .jstats b {
   display: block;
-  font: 800 18px Manrope;
+  font: 800 17px Manrope;
   color: #1b2940;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .lanetitle {
@@ -618,9 +719,19 @@ h3 {
   flex-direction: column;
 }
 
-.lane.active {
+.lane.active-green {
   border-color: #bdebd8;
   background: #f2fcf7;
+}
+
+.lane.active-yellow {
+  border-color: #fde68a;
+  background: #fffdf5;
+}
+
+.lane.emergency-lane {
+  border-color: #fda4af;
+  background: #fff1f2;
 }
 
 .lanetop {
@@ -631,25 +742,44 @@ h3 {
   font-weight: 700;
 }
 
-.light {
-  width: 8px;
-  height: 8px;
+/* 3-State Traffic Light Heads */
+.light-box {
+  display: flex;
+  gap: 2px;
+  background: #252b36;
+  padding: 2px 3px;
+  border-radius: 10px;
+}
+
+.light-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  display: inline-block;
+  background: #475569;
+  opacity: 0.3;
 }
 
-.light.GREEN {
-  background: #20bd83;
-  box-shadow: 0 0 5px #20bd83;
+.light-dot.red.on {
+  background: #ef4444;
+  opacity: 1;
+  box-shadow: 0 0 5px #ef4444;
 }
 
-.light.RED {
-  background: #ef5d6b;
+.light-dot.yellow.on {
+  background: #f59e0b;
+  opacity: 1;
+  box-shadow: 0 0 5px #f59e0b;
+}
+
+.light-dot.green.on {
+  background: #10b981;
+  opacity: 1;
+  box-shadow: 0 0 5px #10b981;
 }
 
 .count {
   font: 800 17px Manrope;
-  margin-top: 7px;
+  margin-top: 6px;
 }
 
 .caption,
@@ -659,14 +789,29 @@ h3 {
   margin-top: 2px;
 }
 
+.score-badge {
+  font-size: 8px;
+  font-weight: 700;
+  background: #eef2f9;
+  color: #4b5a74;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-top: 5px;
+  width: max-content;
+}
+
 .signal {
   font-size: 9px;
   font-weight: 800;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .signal.GREEN {
   color: #159b69;
+}
+
+.signal.YELLOW {
+  color: #d97706;
 }
 
 .signal.RED {
@@ -677,7 +822,7 @@ h3 {
   height: 3px;
   border-radius: 3px;
   background: #e8edf4;
-  margin-top: 7px;
+  margin-top: 6px;
   overflow: hidden;
 }
 
@@ -688,7 +833,7 @@ h3 {
 }
 
 .inject-btn {
-  margin-top: 8px;
+  margin-top: 7px;
   border: 1px dashed #d1d9e6;
   background: white;
   border-radius: 4px;
@@ -750,7 +895,7 @@ h3 {
 /* Bottom Panels */
 .bottom {
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr;
+  grid-template-columns: 0.85fr 1.15fr;
   gap: 14px;
 }
 
@@ -782,7 +927,7 @@ form label {
   justify-content: space-between;
   font-size: 11px;
   color: #647188;
-  margin: 16px 0 9px;
+  margin: 14px 0 7px;
 }
 
 form label b {
@@ -794,14 +939,38 @@ input[type="range"] {
   accent-color: #3569e8;
 }
 
-.hint {
-  font-size: 10px;
-  line-height: 1.6;
-  color: #8c97a9;
+.formula-box {
   background: #f7f9fc;
-  padding: 10px;
-  border-radius: 7px;
-  margin: 17px 0 14px;
+  border: 1px solid #e8ecf3;
+  padding: 11px;
+  border-radius: 8px;
+  margin: 16px 0 14px;
+}
+
+.formula-box b {
+  font-size: 10px;
+  color: #3569e8;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.formula-box code {
+  font-family: monospace;
+  font-size: 10px;
+  color: #172338;
+  display: block;
+  background: #ffffff;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid #e0e5ee;
+  margin-bottom: 5px;
+}
+
+.formula-box small {
+  font-size: 9px;
+  color: #7b889e;
+  line-height: 1.4;
+  display: block;
 }
 
 .wide {
@@ -810,7 +979,7 @@ input[type="range"] {
 
 /* Event List */
 .eventlist {
-  max-height: 280px;
+  max-height: 290px;
   overflow: auto;
 }
 
@@ -834,6 +1003,7 @@ input[type="range"] {
   place-items: center;
   background: #edf2ff;
   color: #3569e8;
+  font-size: 12px;
 }
 
 .eventicon.success {
@@ -849,6 +1019,12 @@ input[type="range"] {
 .eventicon.signal {
   background: #f1edff;
   color: #8864d5;
+}
+
+.eventicon.emergency {
+  background: #fee2e2;
+  color: #dc2626;
+  animation: pulse 1s infinite alternate;
 }
 
 .message {
@@ -914,7 +1090,8 @@ footer span {
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .controls {
+  .controls,
+  .scenario-bar {
     flex-wrap: wrap;
   }
   .controlcopy {

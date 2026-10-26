@@ -19,3 +19,4 @@ if ($pythonCmd) {
 } else {
     Write-Host "ERROR: Python was not found. Please install Python 3.9+ or run with your local interpreter." -ForegroundColor Red
 }
+

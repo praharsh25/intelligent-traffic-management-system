@@ -1,6 +1,7 @@
 /**
  * Intelligent Traffic Management System - Client Controller
- * Coordinates dashboard polling, UI updates, user controls, and REST API communication.
+ * Coordinates dashboard polling, UI updates, user controls, 3-phase signal display,
+ * scenario switching, and REST API communication.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -100,11 +101,26 @@ function updateDashboard(newState) {
     btn.classList.toggle('selected', parseFloat(btn.dataset.speed) === speed);
   });
 
+  // Scenario updates
+  const scenario = newState.scenario || 'medium';
+  document.querySelectorAll('.scen-btn:not(.emergency-btn)').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.scen === scenario);
+  });
+  if (newState.scenario_info && newState.scenario_info.description) {
+    $('active-scenario-desc').textContent = `${newState.scenario_info.name} — ${newState.scenario_info.description}`;
+  }
+
+  // Flow rate slider
+  if (newState.arrival_multiplier !== undefined) {
+    $('flow').value = newState.arrival_multiplier;
+    $('flowval').textContent = newState.arrival_multiplier;
+  }
+
   // Operating Mode
   $('auto').classList.toggle('selected', newState.auto_mode);
   $('manual').classList.toggle('selected', !newState.auto_mode);
   $('mode-desc').textContent = newState.auto_mode
-    ? 'Adaptive control dynamically prioritizes lanes based on real-time queue pressure.'
+    ? 'Adaptive control dynamically evaluates normalized queue density, waiting times, and starvation penalties.'
     : 'Manual mode enabled: operator commands specific approaches to turn green.';
 
   // Adaptive Timing Rules Inputs
@@ -119,7 +135,7 @@ function updateDashboard(newState) {
   renderEvents(newState.events);
 }
 
-// Render intersection cards and approaches
+// Render intersection cards and approaches with 3-phase lights & priority scores
 function renderJunctions(junctions, isAuto) {
   const directions = ['North', 'East', 'South', 'West'];
   const symbols = ['⌖', '⌘', '⇄', '◈'];
@@ -127,29 +143,45 @@ function renderJunctions(junctions, isAuto) {
   $('junction-grid').innerHTML = junctions
     .map((j, i) => {
       const symbol = symbols[i % symbols.length];
+      const phase = j.current_phase || 'GREEN';
+      const phaseRemaining = j.phase_remaining || 0;
+      
+      let phaseLabel = `PHASE: GREEN (${phaseRemaining}s)`;
+      if (phase === 'YELLOW') {
+        phaseLabel = `PHASE: YELLOW (${phaseRemaining}s)`;
+      } else if (phase === 'ALL_RED') {
+        phaseLabel = `PHASE: ALL-RED CLEARANCE (${phaseRemaining}s)`;
+      }
+
       return `
       <article class="junction" id="junction-${esc(j.id)}">
         <div class="jhead">
           <div class="jtitle">
             <div class="jsymbol">${symbol}</div>
             <div>
-              <h3>${esc(j.name)}</h3>
+              <h3>${esc(j.name)} ${j.emergency_active ? '🚨' : ''}</h3>
               <p>${esc(j.location)}</p>
             </div>
           </div>
-          <span class="badge ${esc(j.congestion.toLowerCase())}">
-            ${esc(j.congestion.toUpperCase())} TRAFFIC
-          </span>
+          <div class="jbadges">
+            <span class="badge ${esc(j.congestion.toLowerCase())}">
+              ${esc(j.congestion.toUpperCase())} TRAFFIC
+            </span>
+            <span class="phase-pill ${phase}">
+              ${phaseLabel}
+            </span>
+          </div>
         </div>
 
         <div class="jstats">
-          <span><b>${j.total_vehicles}</b>Vehicles queued</span>
+          <span><b>${j.total_vehicles}</b>Queued</span>
           <span><b>${j.total_passed}</b>Throughput</span>
-          <span><b>${j.cycle}</b>Signal cycles</span>
+          <span><b>${j.avg_wait_seconds}s</b>Avg Wait</span>
+          <span><b>${j.cycle}</b>Cycles</span>
         </div>
 
         <div class="lanetitle">
-          <span>LANE APPROACH STATUS</span>
+          <span>LANE APPROACH &amp; PRIORITY SCORE</span>
           <span>LIVE ESTIMATE</span>
         </div>
 
@@ -157,23 +189,47 @@ function renderJunctions(junctions, isAuto) {
           ${directions
             .map((dir) => {
               const lane = j.lanes[dir];
-              const isActive = dir === j.active_direction;
+              const isGreen = lane.signal === 'GREEN';
+              const isYellow = lane.signal === 'YELLOW';
+              const isRed = lane.signal === 'RED';
               const pct = Math.min(100, Math.round((lane.vehicles / 60) * 100));
+
+              let laneClass = '';
+              if (isGreen) laneClass = 'active-green';
+              else if (isYellow) laneClass = 'active-yellow';
+              if (lane.is_emergency) laneClass += ' emergency-lane';
+
               return `
-              <div class="lane ${isActive ? 'active' : ''}">
+              <div class="lane ${laneClass}">
                 <div class="lanetop">
-                  <span>${dir}</span>
-                  <i class="light ${lane.signal}"></i>
+                  <span>${dir} ${lane.is_emergency ? '🚨' : ''}</span>
+                  <!-- 3-State Traffic Light Head -->
+                  <div class="light-box" title="Signal: ${lane.signal}">
+                    <span class="light-dot red ${isRed ? 'on' : ''}"></span>
+                    <span class="light-dot yellow ${isYellow ? 'on' : ''}"></span>
+                    <span class="light-dot green ${isGreen ? 'on' : ''}"></span>
+                  </div>
                 </div>
+
                 <div class="count">${lane.vehicles}</div>
-                <div class="caption">queued</div>
-                <div class="signal ${lane.signal}">● ${lane.signal}</div>
-                <div class="time">
-                  ${isActive ? lane.green_remaining + 's green' : lane.waiting + ' waiting'}
+                <div class="caption">vehicles queued</div>
+                
+                <div class="signal ${lane.signal}">
+                  ● ${lane.signal}
                 </div>
+
+                <div class="time">
+                  ${isGreen ? lane.green_remaining + 's green' : (lane.waiting_seconds ? Math.round(lane.waiting_seconds) + 's wait' : lane.waiting + ' waiting')}
+                </div>
+
+                <div class="score-badge" title="Normalized Priority Demand Score">
+                  Score: ${lane.is_emergency ? '999 (EMERG)' : lane.priority_score}
+                </div>
+
                 <div class="bar">
                   <span style="width:${pct}%"></span>
                 </div>
+
                 <button class="inject-btn" data-inj-j="${esc(j.id)}" data-inj-d="${dir}" title="Inject +5 simulated vehicles">
                   +5 Cars
                 </button>
@@ -243,6 +299,7 @@ function renderEvents(events) {
     success: '✓',
     warning: '!',
     signal: '↔',
+    emergency: '🚨',
     info: '•',
     error: '✕',
   };
@@ -291,6 +348,53 @@ async function sendControl(action, extra = {}) {
     showToast(err.message, true);
   }
 }
+
+// Scenario buttons listener
+document.querySelectorAll('.scen-btn:not(.emergency-btn)').forEach((btn) => {
+  btn.onclick = async () => {
+    const scen = btn.dataset.scen;
+    try {
+      const data = await apiCall('/api/scenario', { scenario: scen });
+      updateDashboard(data);
+      showToast(`Scenario changed to ${btn.textContent}.`);
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+});
+
+// Emergency Preemption button
+$('dispatch-emerg-btn').onclick = async () => {
+  const jid = prompt(
+    'Dispatch Simulated Emergency Vehicle (Ambulance / Fire Engine)\n\nEnter target intersection ID (J1, J2, J3, or J4):',
+    'J1'
+  );
+  if (!jid) return;
+  const targetJ = jid.trim().toUpperCase();
+
+  const dir = prompt(
+    `Select approach direction for ${targetJ} (North, East, South, or West):`,
+    'North'
+  );
+  if (!dir) return;
+  const targetDir = dir.trim();
+
+  try {
+    const data = await apiCall('/api/emergency', {
+      junction: targetJ,
+      direction: targetDir,
+    });
+    updateDashboard(data);
+    showToast(`🚨 Emergency vehicle dispatched on ${targetJ} ${targetDir}! Priority corridor initiated.`);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+};
+
+// Flow rate slider
+$('flow').oninput = () => {
+  $('flowval').textContent = $('flow').value;
+};
 
 // Wire Global Control Listeners
 $('auto').onclick = () => sendControl('auto');
@@ -352,12 +456,21 @@ $('settings').onsubmit = async (e) => {
   try {
     const minVal = parseInt($('min').value, 10);
     const maxVal = parseInt($('max').value, 10);
-    const data = await apiCall('/api/settings', {
+    const flowVal = parseFloat($('flow').value);
+
+    // Apply timing rules
+    let data = await apiCall('/api/settings', {
       min_green: minVal,
       max_green: maxVal,
     });
+
+    // Apply flow rate multiplier
+    data = await apiCall('/api/flow-rate', {
+      multiplier: flowVal,
+    });
+
     updateDashboard(data);
-    showToast('Adaptive timing rules successfully applied.');
+    showToast('Adaptive timing rules and flow rate successfully applied.');
   } catch (err) {
     showToast(err.message, true);
   }

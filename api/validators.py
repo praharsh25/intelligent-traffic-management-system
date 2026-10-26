@@ -2,7 +2,7 @@
 """
 
 from typing import Any, Dict, List, Optional, Tuple
-from config import DIRECTIONS, SIMULATION_DEFAULTS, TIMING_BOUNDS
+from config import DIRECTIONS, SCENARIOS, SIMULATION_DEFAULTS, TIMING_BOUNDS
 
 
 def validate_control_payload(data: Any) -> Tuple[bool, Optional[str], Dict[str, Any]]:
@@ -38,6 +38,66 @@ def validate_control_payload(data: Any) -> Tuple[bool, Optional[str], Dict[str, 
             validated_data["seed"] = None
 
     return True, None, validated_data
+
+
+def validate_scenario_payload(data: Any, valid_junctions: List[str]) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """Validates /api/scenario payload."""
+    if not isinstance(data, dict):
+        return False, "Request body must be a JSON object.", {}
+
+    scenario = data.get("scenario")
+    if not scenario or scenario not in SCENARIOS:
+        return False, f"Invalid scenario '{scenario}'. Allowed: {list(SCENARIOS.keys())}.", {}
+
+    junction = data.get("junction")
+    direction = data.get("direction")
+
+    if scenario == "emergency":
+        if junction and junction not in valid_junctions:
+            return False, f"Invalid junction '{junction}'. Allowed: {valid_junctions}.", {}
+        if direction and direction not in DIRECTIONS:
+            return False, f"Invalid direction '{direction}'. Allowed: {DIRECTIONS}.", {}
+
+    return True, None, {
+        "scenario": scenario,
+        "junction": junction or "J1",
+        "direction": direction or "North",
+    }
+
+
+def validate_emergency_payload(data: Any, valid_junctions: List[str]) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """Validates /api/emergency payload."""
+    if not isinstance(data, dict):
+        return False, "Request body must be a JSON object.", {}
+
+    junction = data.get("junction", "J1")
+    direction = data.get("direction", "North")
+
+    if junction not in valid_junctions:
+        return False, f"Invalid junction '{junction}'. Allowed: {valid_junctions}.", {}
+
+    if direction not in DIRECTIONS:
+        return False, f"Invalid direction '{direction}'. Allowed: {DIRECTIONS}.", {}
+
+    return True, None, {"junction": junction, "direction": direction}
+
+
+def validate_flow_rate_payload(data: Any) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """Validates /api/flow-rate multiplier payload."""
+    if not isinstance(data, dict):
+        return False, "Request body must be a JSON object.", {}
+
+    raw_multiplier = data.get("multiplier")
+    try:
+        multiplier = float(raw_multiplier)
+    except (TypeError, ValueError):
+        return False, "Multiplier must be a numeric value.", {}
+
+    min_r, max_r = SIMULATION_DEFAULTS["arrival_rate_range"]
+    if not (min_r <= multiplier <= max_r):
+        return False, f"Arrival multiplier must be between {min_r}x and {max_r}x.", {}
+
+    return True, None, {"multiplier": multiplier}
 
 
 def validate_signal_payload(data: Any, valid_junctions: List[str]) -> Tuple[bool, Optional[str], Dict[str, Any]]:

@@ -6,6 +6,9 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 
 from api.validators import (
     validate_control_payload,
+    validate_emergency_payload,
+    validate_flow_rate_payload,
+    validate_scenario_payload,
     validate_settings_payload,
     validate_signal_payload,
     validate_traffic_payload,
@@ -36,6 +39,7 @@ def api_health():
         "auto_mode": engine.auto_mode,
         "tick": engine.tick,
         "speed": engine.speed,
+        "scenario": engine.scenario,
         "is_simulated": True,
     })
 
@@ -84,6 +88,63 @@ def api_control():
         elif action == "speed":
             speed_val = validated["speed"]
             engine.set_speed(speed_val)
+
+    return jsonify(engine.snapshot())
+
+
+@api_bp.route("/api/scenario", methods=["POST"])
+def api_scenario():
+    """Switches the active traffic flow scenario (low, medium, high, peak_hour, emergency)."""
+    engine = get_engine()
+    raw_data = request.get_json(silent=True) or {}
+    valid_junctions = list(engine.junctions.keys())
+    is_valid, error_msg, validated = validate_scenario_payload(raw_data, valid_junctions)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    success = engine.set_scenario(
+        scenario_name=validated["scenario"],
+        target_junction=validated.get("junction"),
+        target_direction=validated.get("direction"),
+    )
+    if not success:
+        return jsonify({"error": "Failed to switch traffic scenario."}), 400
+
+    return jsonify(engine.snapshot())
+
+
+@api_bp.route("/api/emergency", methods=["POST"])
+def api_emergency():
+    """Dispatches an emergency vehicle on a specific junction approach, triggering priority preemption."""
+    engine = get_engine()
+    raw_data = request.get_json(silent=True) or {}
+    valid_junctions = list(engine.junctions.keys())
+    is_valid, error_msg, validated = validate_emergency_payload(raw_data, valid_junctions)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    success = engine.trigger_emergency(
+        junction_id=validated["junction"],
+        direction=validated["direction"],
+    )
+    if not success:
+        return jsonify({"error": "Failed to trigger emergency vehicle preemption."}), 400
+
+    return jsonify(engine.snapshot())
+
+
+@api_bp.route("/api/flow-rate", methods=["POST"])
+def api_flow_rate():
+    """Configures the overall traffic arrival rate multiplier."""
+    engine = get_engine()
+    raw_data = request.get_json(silent=True) or {}
+    is_valid, error_msg, validated = validate_flow_rate_payload(raw_data)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    success = engine.set_arrival_multiplier(validated["multiplier"])
+    if not success:
+        return jsonify({"error": "Failed to set arrival rate multiplier."}), 400
 
     return jsonify(engine.snapshot())
 
