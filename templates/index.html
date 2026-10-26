@@ -1,14 +1,204 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TrafficIQ · Intelligent Traffic Management</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head>
-<body><div class="shell"><aside class="sidebar"><div class="brand"><span class="logo">✦</span><div><b>TRAFFIC<span>IQ</span></b><small>SMART CITY CONTROL</small></div></div><div class="side-label">CONTROL CENTER</div><a class="nav active" href="#overview">▦ &nbsp; Overview</a><a class="nav" href="#junctions">⌘ &nbsp; Junctions <b>04</b></a><a class="nav" href="#events">◷ &nbsp; Event log</a><div class="sidebottom"><i class="pulse"></i><b>Simulation engine</b><small id="engine">Running normally</small><p>SOFTWARE SIMULATION<br>NO HARDWARE REQUIRED</p></div></aside>
-<main><header><div><div class="eyebrow">CITY OPERATIONS / LIVE VIEW</div><h1>Intelligent Traffic Management</h1><p class="muted">Monitor congestion and coordinate signals across simulated intersections.</p></div><div class="headright"><span class="live"><i class="pulse"></i><span id="live">LIVE SIMULATION</span></span><button class="round" id="refresh">↻</button><span class="avatar">TC</span></div></header>
-<section id="overview"><div class="sectionhead"><div><h2>Network overview</h2><p class="muted">Live estimates from the simulation engine</p></div><small>UPDATED <b id="updated">—</b></small></div><div class="metrics">
-<article><div class="metrichead"><span class="tile blue">▣</span><small>NETWORK</small></div><strong id="vehicles">—</strong><p>Vehicles in network</p><small class="foot">● Across all active lanes</small></article>
-<article><div class="metrichead"><span class="tile green">✓</span><small>THROUGHPUT</small></div><strong id="passed">—</strong><p>Vehicles processed</p><small class="foot">● Simulated vehicles cleared</small></article>
-<article><div class="metrichead"><span class="tile orange">≋</span><small>CONGESTION</small></div><strong><span id="heavy">—</span><em> / 4</em></strong><p>Heavy congestion junctions</p><small class="foot">● Requires attention</small></article>
-<article><div class="metrichead"><span class="tile purple">◷</span><small>ENGINE</small></div><strong id="tick">0</strong><p>Simulation steps</p><small class="foot">● Adaptive cycle active</small></article></div></section>
-<section class="controls"><div class="controlcopy"><b>Signal control mode</b><p class="muted" id="mode-desc">Adaptive control prioritizes lanes with higher queues.</p></div><div class="switch"><button id="auto" class="selected">✦ Adaptive</button><button id="manual">☷ Manual</button></div><button class="btn secondary" id="pause">Ⅱ Pause</button><button class="btn primary" id="reset">↻ Reset simulation</button></section>
-<section id="junctions"><div class="sectionhead"><div><h2>Intersection monitoring</h2><p class="muted">Four simulated junctions · signal states update automatically</p></div><div class="legend"><span>● Green</span><span>● Red</span></div></div><div class="junctions" id="junction-grid"></div></section>
-<section class="bottom"><article class="panel"><div class="panelhead"><div><h3>Adaptive timing rules</h3><p class="muted">Configure green signal duration</p></div><span>⚙</span></div><form id="settings"><label>Minimum green duration <b><span id="minval">8</span>s</b></label><input id="min" type="range" min="3" max="20" value="8"><label>Maximum green duration <b><span id="maxval">35</span>s</b></label><input id="max" type="range" min="8" max="60" value="35"><p class="hint">Green time increases with estimated queue. Minimum timing helps prevent lane starvation.</p><button class="btn primary wide">Apply timing rules</button></form></article>
-<article class="panel" id="events"><div class="panelhead"><div><h3>Recent activity</h3><p class="muted">Signal changes and system events</p></div><small id="event-count">0 EVENTS</small></div><div id="event-list" class="eventlist"></div></article></section>
-<footer><b>TRAFFIC<span>IQ</span> · Intelligent Traffic Management System</b><small>DEMO MODE · SYNTHETIC TRAFFIC DATA</small></footer></main></div><div id="toast" class="toast"></div><script src="{{ url_for('static',filename='script.js') }}"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrafficIQ · Intelligent Traffic Management System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="logo">✦</span>
+        <div>
+          <b>TRAFFIC<span>IQ</span></b>
+          <small>SMART CITY CONTROL</small>
+        </div>
+      </div>
+      <div class="side-label">CONTROL CENTER</div>
+      <a class="nav active" href="#overview">▦ &nbsp; Overview</a>
+      <a class="nav" href="#junctions">⌘ &nbsp; Junctions <b>04</b></a>
+      <a class="nav" href="#events">◷ &nbsp; Event log</a>
+      
+      <div class="sidebottom">
+        <i class="pulse"></i>
+        <b>Simulation Engine</b>
+        <small id="engine">Running normally</small>
+        <div class="seed-badge" id="seed-badge">Seed: Dynamic</div>
+        <p>SOFTWARE SIMULATION<br>NO HARDWARE REQUIRED</p>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main>
+      <!-- Header -->
+      <header>
+        <div>
+          <div class="eyebrow">CITY OPERATIONS / LIVE VIEW</div>
+          <h1>Intelligent Traffic Management</h1>
+          <p class="muted">Monitor congestion and coordinate signals across simulated intersections.</p>
+        </div>
+        <div class="headright">
+          <span class="live" id="live-pill">
+            <i class="pulse"></i>
+            <span id="live">LIVE SIMULATION</span>
+          </span>
+          <button class="round" id="refresh" title="Refresh state from server">↻</button>
+          <span class="avatar" title="Traffic Controller">TC</span>
+        </div>
+      </header>
+
+      <!-- Network Overview KPI Cards -->
+      <section id="overview">
+        <div class="sectionhead">
+          <div>
+            <h2>Network overview</h2>
+            <p class="muted">Real-time metrics from the autonomous simulation engine</p>
+          </div>
+          <small>UPDATED <b id="updated">—</b></small>
+        </div>
+        
+        <div class="metrics">
+          <article>
+            <div class="metrichead">
+              <span class="tile blue">▣</span>
+              <small>NETWORK QUEUE</small>
+            </div>
+            <strong id="vehicles">—</strong>
+            <p>Vehicles in network</p>
+            <small class="foot">● Across all active lanes</small>
+          </article>
+
+          <article>
+            <div class="metrichead">
+              <span class="tile green">✓</span>
+              <small>THROUGHPUT</small>
+            </div>
+            <strong id="passed">—</strong>
+            <p>Vehicles processed</p>
+            <small class="foot">● Cumulative simulated throughput</small>
+          </article>
+
+          <article>
+            <div class="metrichead">
+              <span class="tile orange">≋</span>
+              <small>CONGESTION</small>
+            </div>
+            <strong><span id="heavy">—</span><em> / 4</em></strong>
+            <p>Heavy congestion junctions</p>
+            <small class="foot">● Require immediate green clearance</small>
+          </article>
+
+          <article>
+            <div class="metrichead">
+              <span class="tile purple">◷</span>
+              <small>SIMULATION TICK</small>
+            </div>
+            <strong id="tick">0</strong>
+            <p>Engine steps completed</p>
+            <small class="foot" id="speed-label">● 1.0x Speed</small>
+          </article>
+        </div>
+      </section>
+
+      <!-- Control Toolbar -->
+      <section class="controls">
+        <div class="controlcopy">
+          <b>Signal control mode</b>
+          <p class="muted" id="mode-desc">Adaptive control dynamically prioritizes lanes based on real-time queue pressure.</p>
+        </div>
+        
+        <div class="switch">
+          <button id="auto" class="selected">✦ Adaptive</button>
+          <button id="manual">☷ Manual</button>
+        </div>
+
+        <!-- Speed Selector -->
+        <div class="speed-group" title="Set simulation tick rate">
+          <span class="speed-label">Speed:</span>
+          <button class="speed-btn" data-speed="0.5">0.5x</button>
+          <button class="speed-btn selected" data-speed="1.0">1.0x</button>
+          <button class="speed-btn" data-speed="2.0">2.0x</button>
+          <button class="speed-btn" data-speed="4.0">4.0x</button>
+        </div>
+
+        <button class="btn secondary" id="pause">Ⅱ Pause</button>
+        <button class="btn secondary" id="step-btn" title="Advance one step manually (when paused)">⏭ Step</button>
+        <button class="btn primary" id="reset">↻ Reset</button>
+      </section>
+
+      <!-- Intersections Grid -->
+      <section id="junctions">
+        <div class="sectionhead">
+          <div>
+            <h2>Intersection monitoring</h2>
+            <p class="muted">Four simulated four-way intersections · signals adapt autonomously</p>
+          </div>
+          <div class="legend">
+            <span>● Green (Active Flow)</span>
+            <span>● Red (Holding Queue)</span>
+          </div>
+        </div>
+        <div class="junctions" id="junction-grid"></div>
+      </section>
+
+      <!-- Settings & Activity Panels -->
+      <section class="bottom">
+        <!-- Adaptive Timing Rules Form -->
+        <article class="panel">
+          <div class="panelhead">
+            <div>
+              <h3>Adaptive timing rules</h3>
+              <p class="muted">Configure green signal boundary parameters</p>
+            </div>
+            <span>⚙</span>
+          </div>
+          <form id="settings">
+            <label>
+              Minimum green duration
+              <b><span id="minval">8</span>s</b>
+            </label>
+            <input id="min" type="range" min="3" max="20" value="8">
+
+            <label>
+              Maximum green duration
+              <b><span id="maxval">35</span>s</b>
+            </label>
+            <input id="max" type="range" min="8" max="60" value="35">
+
+            <p class="hint">
+              Dynamic green duration scales with estimated queue pressure. The minimum duration prevents rapid signal oscillation, and the maximum prevents starving cross-traffic.
+            </p>
+            <button class="btn primary wide" type="submit">Apply timing rules</button>
+          </form>
+        </article>
+
+        <!-- Audit Event Log -->
+        <article class="panel" id="events">
+          <div class="panelhead">
+            <div>
+              <h3>Recent activity &amp; audit log</h3>
+              <p class="muted">Signal phase transitions and controller decisions</p>
+            </div>
+            <small id="event-count">0 EVENTS</small>
+          </div>
+          <div id="event-list" class="eventlist"></div>
+        </article>
+      </section>
+
+      <!-- Footer Disclaimer -->
+      <footer>
+        <b>TRAFFIC<span>IQ</span> · Intelligent Traffic Management System</b>
+        <small>100% SOFTWARE-BASED IOT SIMULATION · NO PHYSICAL HARDWARE REQUIRED</small>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Toast Notification Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
