@@ -227,3 +227,4 @@ def test_analytics_api_endpoints(test_db_path):
         assert res.get_json()["status"] == "success"
 
     engine.stop_worker()
+

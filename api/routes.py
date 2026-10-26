@@ -294,6 +294,28 @@ def api_analytics_history():
     })
 
 
+@api_bp.route("/api/analytics/chart-data")
+def api_analytics_chart_data():
+    """Returns network-wide aggregated timeline series (ticks, queues, throughput, wait delay) for charts."""
+    repo = get_repo()
+    session_id = request.args.get("session_id")
+    if not session_id:
+        engine = get_engine()
+        session_id = engine.session_id
+
+    try:
+        limit = min(100, max(10, int(request.args.get("limit", 40))))
+    except ValueError:
+        limit = 40
+
+    timeline = repo.get_network_timeline(session_id=session_id, limit=limit)
+    return jsonify({
+        "session_id": session_id,
+        "count": len(timeline),
+        "timeline": timeline,
+    })
+
+
 @api_bp.route("/api/analytics/signal-logs")
 def api_analytics_signal_logs():
     """Retrieves recorded signal phase transition audit logs."""

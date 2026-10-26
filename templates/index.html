@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TrafficIQ · Advanced Software-Only Traffic Simulator &amp; Adaptive Signal Optimization</title>
+  <title>TrafficIQ · Intelligent Traffic Management System (Software Simulation Lab)</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -14,36 +14,40 @@
         <span class="logo">✦</span>
         <div>
           <b>TRAFFIC<span>IQ</span></b>
-          <small>SMART CITY SIMULATOR</small>
+          <small>SMART CITY CONTROL</small>
         </div>
       </div>
       <div class="side-label">CONTROL CENTER</div>
       <a class="nav active" href="#overview">▦ &nbsp; Overview</a>
-      <a class="nav" href="#scenarios">⚡ &nbsp; Scenarios</a>
+      <a class="nav" href="#scenarios">⚡ &nbsp; Traffic Scenarios</a>
       <a class="nav" href="#junctions">⌘ &nbsp; Intersections <b>04</b></a>
-      <a class="nav" href="#analytics-section">📈 &nbsp; Analytics &amp; DB</a>
+      <a class="nav" href="#charts-section">📊 &nbsp; Historical Charts</a>
+      <a class="nav" href="#analytics-section">📈 &nbsp; Baseline Comparison</a>
       <a class="nav" href="#events">◷ &nbsp; Event Log</a>
+      <a class="nav" href="#methodology">📘 &nbsp; System Architecture</a>
       
       <div class="sidebottom">
         <i class="pulse"></i>
         <b>Simulation Engine</b>
         <small id="engine">Running normally</small>
+        <div class="sim-banner">SIMULATION MODE · 100% SOFTWARE</div>
         <div class="seed-badge" id="seed-badge">Seed: Dynamic</div>
-        <div class="session-badge" id="session-badge" title="Active SQLite Session ID">Session: Loading...</div>
-        <p>100% SOFTWARE-BASED<br>NO PHYSICAL SENSORS OR HARDWARE</p>
+        <div class="session-badge" id="session-badge" title="Active SQLite Session ID">Session: Initializing...</div>
+        <p>ACADEMIC DEMONSTRATION<br>NO PHYSICAL SENSORS OR HARDWARE</p>
       </div>
     </aside>
 
     <!-- Main Content Area -->
     <main>
-      <!-- Header -->
+      <!-- Header with Simulation Banner -->
       <header>
         <div>
-          <div class="eyebrow">ACADEMIC SIMULATION / ADAPTIVE CONTROL LAB</div>
+          <div class="eyebrow">FINAL YEAR PROJECT / INTELLIGENT TRAFFIC MANAGEMENT LAB</div>
           <h1>Intelligent Traffic Management System</h1>
-          <p class="muted">Software-based IoT queue simulation, 3-phase signal control, and persistent SQLite telemetry.</p>
+          <p class="muted">Software-Based IoT Simulation, 3-Phase Adaptive Signal Optimization &amp; SQLite Telemetry</p>
         </div>
         <div class="headright">
+          <span class="sim-mode-tag">SIMULATED DATA</span>
           <span class="live" id="live-pill">
             <i class="pulse"></i>
             <span id="live">LIVE SIMULATION</span>
@@ -53,35 +57,45 @@
         </div>
       </header>
 
-      <!-- Network Overview KPI Cards -->
+      <!-- Section 1: Overview Cards -->
       <section id="overview">
         <div class="sectionhead">
           <div>
-            <h2>Network overview</h2>
-            <p class="muted">Real-time metrics from the autonomous simulation engine (Labeled as SIMULATED)</p>
+            <h2>Network Overview</h2>
+            <p class="muted">Live operational metrics from the autonomous simulation engine (Explicitly Labeled as SIMULATED)</p>
           </div>
-          <small>UPDATED <b id="updated">—</b></small>
+          <small>LAST UPDATED <b id="updated">—</b></small>
         </div>
         
         <div class="metrics">
           <article>
             <div class="metrichead">
-              <span class="tile blue">▣</span>
-              <small>NETWORK QUEUE</small>
+              <span class="tile blue">⌘</span>
+              <small>INTERSECTIONS</small>
             </div>
-            <strong id="vehicles">—</strong>
-            <p>Vehicles in network</p>
-            <small class="foot">● Simulated queue depth</small>
+            <strong><span id="active-junctions">4</span><em> / 4</em></strong>
+            <p>Active simulated intersections</p>
+            <small class="foot">● 100% software simulated</small>
           </article>
 
           <article>
             <div class="metrichead">
-              <span class="tile green">✓</span>
-              <small>THROUGHPUT</small>
+              <span class="tile blue">▣</span>
+              <small>TOTAL QUEUED</small>
             </div>
-            <strong id="passed">—</strong>
-            <p>Vehicles processed</p>
-            <small class="foot">● Cumulative departures</small>
+            <strong id="vehicles">—</strong>
+            <p>Vehicles in network queue</p>
+            <small class="foot">● Sum across all 16 approaches</small>
+          </article>
+
+          <article>
+            <div class="metrichead">
+              <span class="tile orange">◷</span>
+              <small>AVERAGE DELAY</small>
+            </div>
+            <strong><span id="avg-delay">—</span><em>s</em></strong>
+            <p>Mean vehicle waiting time</p>
+            <small class="foot" id="peak-delay-label">● Live computed delay</small>
           </article>
 
           <article>
@@ -91,41 +105,41 @@
             </div>
             <strong><span id="heavy">—</span><em> / 4</em></strong>
             <p>Heavy congestion junctions</p>
-            <small class="foot">● Queue saturation alert</small>
+            <small class="foot" id="congestion-status-label">● Moderate traffic</small>
           </article>
 
           <article>
             <div class="metrichead">
-              <span class="tile purple">◷</span>
-              <small>SIMULATION TICK</small>
+              <span class="tile green">✓</span>
+              <small>THROUGHPUT</small>
             </div>
-            <strong id="tick">0</strong>
-            <p>Discrete time steps</p>
-            <small class="foot" id="speed-label">● 1.0x Speed</small>
+            <strong id="passed">—</strong>
+            <p>Vehicles processed</p>
+            <small class="foot">● Total cleared departures</small>
           </article>
         </div>
       </section>
 
-      <!-- Scenario Selector Bar -->
+      <!-- Section 4: Live Simulation Controls & Scenario Selector -->
       <section class="scenario-bar" id="scenarios">
         <div class="scenario-info">
-          <b>Traffic Scenarios:</b>
+          <b>Traffic Flow Scenarios:</b>
           <span id="active-scenario-desc" class="muted">Standard steady-state urban traffic flow</span>
         </div>
         <div class="scenario-buttons">
-          <button class="scen-btn" data-scen="low">Low Traffic</button>
-          <button class="scen-btn selected" data-scen="medium">Medium</button>
-          <button class="scen-btn" data-scen="high">High Traffic</button>
-          <button class="scen-btn" data-scen="peak_hour">Peak Hour (Tidal)</button>
-          <button class="scen-btn emergency-btn" id="dispatch-emerg-btn">🚨 Emergency Preemption</button>
+          <button class="scen-btn" data-scen="low" title="Light off-peak traffic flow">Low Traffic</button>
+          <button class="scen-btn selected" data-scen="medium" title="Normal steady-state urban traffic">Medium</button>
+          <button class="scen-btn" data-scen="high" title="Congested rush-hour density">High Traffic</button>
+          <button class="scen-btn" data-scen="peak_hour" title="Directional tidal flow on North-South arterial">Peak Hour (Tidal)</button>
+          <button class="scen-btn emergency-btn" id="dispatch-emerg-btn" title="Simulate approaching ambulance/fire truck">🚨 Emergency Preemption</button>
         </div>
       </section>
 
-      <!-- Control Toolbar -->
+      <!-- Controls Toolbar -->
       <section class="controls">
         <div class="controlcopy">
-          <b>Signal control mode</b>
-          <p class="muted" id="mode-desc">Adaptive control dynamically evaluates normalized queue density, waiting times, and starvation penalties.</p>
+          <b>Signal Control Mode</b>
+          <p class="muted" id="mode-desc">Adaptive mode optimizes green phases using normalized queue density, waiting times, and starvation prevention.</p>
         </div>
         
         <div class="switch">
@@ -143,71 +157,95 @@
         </div>
 
         <button class="btn secondary" id="pause">Ⅱ Pause</button>
-        <button class="btn secondary" id="step-btn" title="Advance one step manually (when paused)">⏭ Step</button>
+        <button class="btn secondary" id="step-btn" title="Advance one step manually (active when paused)">⏭ Step</button>
         <button class="btn primary" id="reset">↻ Reset</button>
       </section>
 
-      <!-- Intersections Grid -->
+      <!-- Section 2 & 3: Visual Four-Intersection Layout with 3-Phase Signal Indicators -->
       <section id="junctions">
         <div class="sectionhead">
           <div>
-            <h2>Intersection Monitoring &amp; Signal State Machine</h2>
-            <p class="muted">Four simulated 4-way intersections · Explicit RED, YELLOW (3s amber), and GREEN phases</p>
+            <h2>Four-Intersection Network Layout &amp; Signal State Machine</h2>
+            <p class="muted">Visual crossroad layouts · North, South, East, West lanes with 3-aspect signal housings (Red, Yellow, Green)</p>
           </div>
           <div class="legend">
             <span class="leg-green">● Green (Flow)</span>
-            <span class="leg-yellow">● Yellow (Clearance)</span>
-            <span class="leg-red">● Red (Stop)</span>
+            <span class="leg-yellow">● Yellow (3s Clearance)</span>
+            <span class="leg-red">● Red (Hold)</span>
           </div>
         </div>
         <div class="junctions" id="junction-grid"></div>
       </section>
 
-      <!-- Persistent Storage & Comparative Analytics Section -->
+      <!-- Section 6: Historical Charts -->
+      <section id="charts-section">
+        <div class="sectionhead">
+          <div>
+            <h2>Historical Analytics Charts (Live Real-Time Telemetry)</h2>
+            <p class="muted">Zero-dependency, offline-ready canvas charts plotting queue evolution, throughput, and delay trends</p>
+          </div>
+          <small>REFRESHING CONTINUOUSLY</small>
+        </div>
+
+        <div class="charts-grid">
+          <!-- Chart 1: Queue Depth vs Departed Throughput -->
+          <article class="chart-panel">
+            <div class="chart-head">
+              <div>
+                <h3>Network Queue Depth &amp; Processed Throughput</h3>
+                <p class="muted">Queued vehicles (blue) vs Cumulative cleared departures (green)</p>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="chart-queue-throughput" width="500" height="220"></canvas>
+            </div>
+          </article>
+
+          <!-- Chart 2: Average Delay Trend -->
+          <article class="chart-panel">
+            <div class="chart-head">
+              <div>
+                <h3>Average Vehicle Delay Trend</h3>
+                <p class="muted">Mean waiting seconds with 45s starvation threshold reference</p>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="chart-wait-delay" width="500" height="220"></canvas>
+            </div>
+          </article>
+
+          <!-- Chart 3: Signal Phase Utilization by Direction -->
+          <article class="chart-panel wide-chart">
+            <div class="chart-head">
+              <div>
+                <h3>Directional Signal Phase Utilization (% Green / Yellow / Red)</h3>
+                <p class="muted">Measured allocation of green wave flow versus stopped delay across approaches</p>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="chart-signal-util" width="1050" height="190"></canvas>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Section 7: Adaptive vs. Fixed Timing Comparison Panel -->
       <section id="analytics-section">
         <div class="sectionhead">
           <div>
-            <h2>Verifiable Analytics &amp; Baseline Benchmarking (SQLite Persistent Data)</h2>
-            <p class="muted">Metrics calculated strictly from persistent SQLite tables across sessions</p>
+            <h2>Empirical Performance Benchmark: Fixed-Time Baseline vs. Adaptive Optimization</h2>
+            <p class="muted">Side-by-side comparison under equivalent reproducible seeds to verify real academic performance gains</p>
           </div>
           <div class="db-actions">
             <button class="btn secondary mini-btn" id="db-reset-btn" title="Wipe development database tables">Reset DB</button>
           </div>
         </div>
 
-        <!-- Analytics Metric Cards -->
-        <div class="analytics-cards">
-          <article class="analytics-card">
-            <small>DB AVERAGE WAIT TIME</small>
-            <strong id="db-avg-wait">—</strong>
-            <p>Mean vehicle delay from recorded snapshots</p>
-            <small class="foot" id="db-samples">0 samples</small>
-          </article>
-
-          <article class="analytics-card">
-            <small>DB AVERAGE QUEUE</small>
-            <strong id="db-avg-queue">—</strong>
-            <p>Mean vehicles queued per intersection</p>
-            <small class="foot" id="db-peak-queue">Peak: 0</small>
-          </article>
-
-          <article class="analytics-card">
-            <small>CONGESTION BREAKDOWN</small>
-            <div class="cong-bars">
-              <div><small>Low:</small> <b id="cong-low">0%</b></div>
-              <div><small>Moderate:</small> <b id="cong-mod">0%</b></div>
-              <div><small>Heavy:</small> <b id="cong-heavy">0%</b></div>
-            </div>
-            <small class="foot">● State distribution</small>
-          </article>
-        </div>
-
-        <!-- Side-by-Side Baseline Comparison Benchmark Card -->
         <article class="benchmark-card">
           <div class="bench-head">
             <div>
-              <h3>Comparative Benchmark: Fixed-Time Baseline vs. Adaptive Signal Optimization</h3>
-              <p class="muted">Runs equal-duration reproducible simulation runs with identical random seeds to prove empirical performance gains.</p>
+              <h3>Run Comparative Simulation Benchmark</h3>
+              <p class="muted">Executes an identical 60-tick simulation under Fixed-Time round-robin and Adaptive control to calculate exact percentage gains from SQLite records.</p>
             </div>
             <button class="btn primary" id="run-benchmark-btn">⚡ Run 60s Benchmark Comparison</button>
           </div>
@@ -217,15 +255,15 @@
               <div class="bench-col fixed-col">
                 <h4>Fixed-Time Baseline (Round-Robin)</h4>
                 <div class="bench-metric">
-                  <span>Average Delay:</span>
+                  <span>Average Vehicle Delay:</span>
                   <b id="bench-f-wait">—</b>
                 </div>
                 <div class="bench-metric">
-                  <span>Throughput Cleared:</span>
+                  <span>Total Throughput Cleared:</span>
                   <b id="bench-f-thru">—</b>
                 </div>
                 <div class="bench-metric">
-                  <span>Average Queue:</span>
+                  <span>Average Queue Length:</span>
                   <b id="bench-f-queue">—</b>
                 </div>
               </div>
@@ -235,27 +273,27 @@
               <div class="bench-col adaptive-col">
                 <h4>Adaptive Signal Optimization</h4>
                 <div class="bench-metric">
-                  <span>Average Delay:</span>
+                  <span>Average Vehicle Delay:</span>
                   <b id="bench-a-wait">—</b>
                 </div>
                 <div class="bench-metric">
-                  <span>Throughput Cleared:</span>
+                  <span>Total Throughput Cleared:</span>
                   <b id="bench-a-thru">—</b>
                 </div>
                 <div class="bench-metric">
-                  <span>Average Queue:</span>
+                  <span>Average Queue Length:</span>
                   <b id="bench-a-queue">—</b>
                 </div>
               </div>
 
               <div class="bench-col summary-col">
-                <h4>Empirical Improvement</h4>
+                <h4>Measured Improvement</h4>
                 <div class="gain-badge green" id="bench-gain-wait">
                   <span>Delay Reduction:</span>
                   <b>—</b>
                 </div>
                 <div class="gain-badge blue" id="bench-gain-thru">
-                  <span>Throughput Gain:</span>
+                  <span>Throughput Increase:</span>
                   <b>—</b>
                 </div>
                 <small class="bench-note" id="bench-seed-note">Seed 42 · Medium Traffic · 60 ticks</small>
@@ -265,13 +303,13 @@
         </article>
       </section>
 
-      <!-- Settings & Activity Panels -->
+      <!-- Section 5: Timing Config & Section 8: Event Log -->
       <section class="bottom">
-        <!-- Adaptive Timing Rules Form -->
+        <!-- Section 5: Configurable Timing & Flow -->
         <article class="panel">
           <div class="panelhead">
             <div>
-              <h3>Adaptive Timing &amp; Flow Parameters</h3>
+              <h3>Adaptive Timing Rules &amp; Flow Configuration</h3>
               <p class="muted">Configurable green boundaries and arrival rate multipliers</p>
             </div>
             <span>⚙</span>
@@ -305,12 +343,12 @@
           </form>
         </article>
 
-        <!-- Audit Event Log -->
+        <!-- Section 8: Timestamped Event Log -->
         <article class="panel" id="events">
           <div class="panelhead">
             <div>
-              <h3>Audit &amp; Phase Transition Log</h3>
-              <p class="muted">Yellow clearance, emergency preemption, and signal decisions</p>
+              <h3>Timestamped Audit &amp; Event Log</h3>
+              <p class="muted">Signal phase transitions, emergency preemption, and operator actions</p>
             </div>
             <small id="event-count">0 EVENTS</small>
           </div>
@@ -318,10 +356,55 @@
         </article>
       </section>
 
-      <!-- Footer Disclaimer -->
+      <!-- Section 9: Methodology & Architecture Drawer -->
+      <section id="methodology" class="methodology-section">
+        <article class="panel">
+          <div class="panelhead">
+            <div>
+              <h3>📘 System Architecture, Methodology &amp; Examiner Guide</h3>
+              <p class="muted">Technical justification, mathematical formulations, and demonstration notes</p>
+            </div>
+            <span>✦</span>
+          </div>
+
+          <div class="methodology-grid">
+            <div class="method-card">
+              <h4>1. Adaptive Signal Optimization Formula</h4>
+              <p>Each lane approach $d$ receives a normalized composite score:</p>
+              <code>P_d = 0.45·(Q_d / 60) + 0.35·(W_d / 90s) + 0.20·(c_d / 3)^1.5 + ε_d</code>
+              <p>Green time is allocated dynamically via a Webster-style proportional window:</p>
+              <code>T_g = clamp(T_min, T_max, T_min + round((T_max - T_min) * (P_d / ΣP)))</code>
+            </div>
+
+            <div class="method-card">
+              <h4>2. Safety Clearance Intervals &amp; Conflict Prevention</h4>
+              <p>Explicit 4-phase state machine prevents conflicting greens:</p>
+              <code>GREEN (10-35s) → YELLOW (3s) → ALL-RED (1s) → NEXT GREEN</code>
+              <p>Verified by safety invariant assertion on every step. Zero simultaneous conflicting green or yellow signals permitted.</p>
+            </div>
+
+            <div class="method-card">
+              <h4>3. 100% Software-Based IoT Simulation</h4>
+              <p>Vehicle arrivals are generated by a stochastic Poisson-like arrival engine with configurable rate multipliers ($0.5\times$ to $2.5\times$).</p>
+              <p><strong>Examiner Note:</strong> No physical microcontrollers, cameras, relays, or hardware are required. All readings are labeled SIMULATED.</p>
+            </div>
+
+            <div class="method-card">
+              <h4>4. Persistent SQLite Architecture</h4>
+              <p>Uses WAL mode SQLite (<code>traffic_management.db</code>). Sessions, snapshots, lane readings, and phase changes are persisted across server restarts.</p>
+              <p>Analytics are calculated strictly via SQL aggregations, ensuring verifiable performance metrics.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Section 10: Footer with Simulation Mode Indicator -->
       <footer>
-        <b>TRAFFIC<span>IQ</span> · Intelligent Traffic Management System</b>
-        <small>100% SOFTWARE-BASED IOT &amp; TRAFFIC SIMULATION · PERSISTENT SQLITE DATABASE · ACADEMIC CLASSROOM USE ONLY · NOT FOR REAL-WORLD ROAD CONTROL</small>
+        <div class="foot-left">
+          <b>TRAFFIC<span>IQ</span> · Intelligent Traffic Management System</b>
+          <span class="foot-sim-tag">● SIMULATION MODE ACTIVE · 100% SOFTWARE-BASED</span>
+        </div>
+        <small>FOR ACADEMIC AND PRACTICAL EXAMINATION USE ONLY · NOT CERTIFIED FOR CONTROLLING PHYSICAL ROAD INFRASTRUCTURE</small>
       </footer>
     </main>
   </div>
@@ -329,6 +412,8 @@
   <!-- Toast Notification Notification -->
   <div id="toast" class="toast"></div>
 
+  <!-- Charts & Client Controller Scripts -->
+  <script src="{{ url_for('static', filename='charts.js') }}"></script>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -12,51 +12,144 @@ A high-reliability, modular traffic management system designed for external prac
 ## 1. System Architecture
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
-│                    WEB DASHBOARD (FRONTEND)                       │
-│  - Modern responsive SPA (HTML5, CSS3, Vanilla JS)                │
-│  - 3-Phase Signal Lights (Red, Amber Yellow, Green)               │
-│  - Live transparent Priority Scores (Score: X.XX per approach)    │
-│  - Scenario Selector (Low, Medium, High, Peak Hour, Emergency)    │
-│  - Real-Time SQLite Database Analytics & Congestion Breakdown     │
-│  - Side-by-side Baseline Comparison Benchmark (Fixed vs Adaptive) │
-└─────────────────────────────────┬─────────────────────────────────┘
-                                  │ HTTP REST APIs
-                                  ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                MODULAR FLASK BACKEND (API LAYER)                  │
-│  - Blueprint routes: api/routes.py                                │
-│  - Strict input validation & sanitization: api/validators.py      │
-│  - Analytical query processing: database/analytics.py             │
-│  - Structured logging, health check, and error handlers           │
-└─────────────────────────────────┬─────────────────────────────────┘
-                                  │
-┌─────────────────────────────────▼─────────────────────────────────┐
-│               AUTONOMOUS SIMULATION ENGINE (CORE)                 │
-│  - Background daemon thread (core/simulation_engine.py)           │
-│  - Thread-safe RLock synchronization                              │
-│  - Four 4-way intersections (J1, J2, J3, J4)                      │
-│  - Queue dynamics (arrivals, departures, non-negative bounds)     │
-│  - Explicit 4-Phase State Machine (GREEN -> YELLOW -> ALL_RED)    │
-│  - Emergency Vehicle Preemption Corridor                          │
-│  - Adaptive Signal Optimizer (core/signal_optimizer.py)           │
-│  - Transparent Priority Scoring & Anti-Starvation Mechanism       │
-└─────────────────────────────────┬─────────────────────────────────┘
-                                  │
-┌─────────────────────────────────▼─────────────────────────────────┐
-│              PERSISTENT STORAGE LAYER (SQLITE 3)                  │
-│  - Single portable database file: traffic_management.db           │
-│  - Strict foreign keys (PRAGMA foreign_keys = ON)                 │
-│  - Write-Ahead Logging (PRAGMA journal_mode = WAL)                │
-│  - Tables: simulation_sessions, intersection_snapshots,           │
-│    lane_metrics, signal_phase_logs, audit_event_logs,             │
-│    baseline_comparisons                                           │
-└───────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        WEB DASHBOARD (FRONTEND)                        │
+│  - Modern responsive SPA (HTML5, CSS3, Vanilla JS, Zero-CDN)           │
+│  - Visual Crossroad Layouts & 3-Phase Signal Lights (Red, Amber, Green)│
+│  - Directional Arrows & Real-Time Approach Progress Gauges             │
+│  - Native HTML5 Canvas Charts (Queue Depth, Throughput, Delay Trend)   │
+│  - Directional Signal Phase Utilization (% Green / Yellow / Red)       │
+│  - Live transparent Priority Scores (Score: X.XX per approach)         │
+│  - Scenario Selector (Low, Medium, High, Peak Hour, Emergency)         │
+│  - Real-Time SQLite Database Analytics & Congestion Breakdown          │
+│  - Side-by-Side Baseline Comparison Benchmark (Fixed vs Adaptive)      │
+│  - Timestamped Audit Event Log & Architecture Explanation Drawer       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP REST APIs
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                  MODULAR FLASK BACKEND (API LAYER)                     │
+│  - Blueprint routes: api/routes.py                                     │
+│  - Strict input validation & sanitization: api/validators.py           │
+│  - Analytical query processing: database/analytics.py                  │
+│  - Structured logging, health check, and error handlers                │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                 AUTONOMOUS SIMULATION ENGINE (CORE)                    │
+│  - Background daemon thread (core/simulation_engine.py)                │
+│  - Thread-safe RLock synchronization                                   │
+│  - Four 4-way intersections (J1, J2, J3, J4)                           │
+│  - Queue dynamics (arrivals, departures, non-negative bounds)          │
+│  - Explicit 4-Phase State Machine (GREEN -> YELLOW -> ALL_RED -> GREEN)│
+│  - Emergency Vehicle Preemption Priority Corridor                      │
+│  - Adaptive Signal Optimizer (core/signal_optimizer.py)                │
+│  - Transparent Priority Scoring & Anti-Starvation Mechanism            │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                PERSISTENT STORAGE LAYER (SQLITE 3)                     │
+│  - Single portable database file: traffic_management.db                │
+│  - Strict foreign keys (PRAGMA foreign_keys = ON)                      │
+│  - Write-Ahead Logging (PRAGMA journal_mode = WAL)                     │
+│  - Tables: simulation_sessions, intersection_snapshots,                │
+│    lane_metrics, signal_phase_logs, audit_event_logs,                  │
+│    baseline_comparisons                                                │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. SQLite Database Schema & Persistence
+## 2. The 10 Dashboard Sections (Examiner-Ready UI)
+
+The web dashboard is structured into 10 cohesive, responsive sections:
+
+1. **Overview KPI Cards**:
+   - **Active Intersections**: Displays active simulated junctions ($4 / 4$).
+   - **Total Queued Vehicles**: Live sum of vehicles held across all 16 approach lanes.
+   - **Average Network Delay**: Arithmetic mean vehicle waiting time in seconds, plus peak delay.
+   - **Congestion Status**: Real-time count of heavy-congestion intersections with descriptive badge.
+   - **Cumulative Throughput**: Total count of simulated vehicles cleared through green phases.
+
+2. **Visual Four-Intersection Crossroad Layout**:
+   - Visual crossroads representation for each intersection showing physical orientation.
+   - Clearly labeled **North ($\uparrow$)**, **East ($\rightarrow$)**, **South ($\downarrow$)**, and **West ($\leftarrow$)** approaches.
+   - Active green wave corridor dynamically illuminated with glow animations.
+
+3. **3-Aspect Traffic Signal Indicators**:
+   - Physical-style signal housings featuring distinct **RED**, **AMBER YELLOW**, and **GREEN** indicators.
+   - State machine guarantees **zero simultaneous conflicting greens** and safe transition phases.
+
+4. **Live Simulation Controls & Scenarios**:
+   - **Playback Controls**: Start, Pause, Resume, Reset (with optional random seed for repeatability), and Single-Step ($\text{Step} +1$).
+   - **Simulation Speed**: Multipliers at $0.5\times$, $1.0\times$, $2.0\times$, and $4.0\times$.
+   - **Traffic Flow Scenarios**:
+     - *Low Traffic*: Sparse off-peak flow.
+     - *Medium Traffic*: Standard balanced urban flow.
+     - *High Traffic*: Dense rush-hour volume.
+     - *Peak Hour (Tidal)*: Directional arterial bias favoring North-South corridor.
+     - *Emergency Preemption*: Dispatches simulated emergency ambulance or fire engine.
+   - **Operating Mode**: Toggle between autonomous **Adaptive Optimization** and **Manual Override**.
+
+5. **Direction-Wise Approach Metrics**:
+   - Approach-specific vehicle queue depth, waiting seconds, green time remaining, and arrival rate multipliers.
+   - Live **Score Badge** displaying the computed normalized priority score.
+   - Interactive **+5 Cars** injection button allowing examiners to test real-time adaptive response.
+
+6. **Historical Canvas Analytics Charts (Zero-Dependency & Offline-Ready)**:
+   - *Chart 1*: **Network Queue Depth & Cumulative Throughput** (area fill vs dashed throughput line).
+   - *Chart 2*: **Average Vehicle Delay Trend** (with 45s starvation threshold reference line).
+   - *Chart 3*: **Directional Signal Phase Utilization** (stacked bar chart showing exact % Green, % Yellow, and % Red time allocated).
+
+7. **Empirical Baseline Comparison Benchmark Panel**:
+   - Side-by-side performance benchmark comparing **Fixed-Time Round-Robin Baseline** against **Adaptive Optimization**.
+   - Runs reproducible identical seeds (e.g., Seed 42, 60 ticks) to prove academic delay reduction and throughput improvements.
+
+8. **Timestamped System Audit & Event Log**:
+   - Live chronological event feed recording phase transitions, emergency overrides, scenario adjustments, and configuration changes.
+
+9. **Methodology & Architecture Drawer**:
+   - Full mathematical explanation of the priority scoring formula, Webster-style green window allocation, clearance intervals, and SQLite telemetry schema.
+
+10. **Persistent Simulation Mode Banners**:
+    - Unambiguous visual indicators in sidebar, header, and footer confirming **SIMULATION MODE · 100% SOFTWARE-BASED**.
+
+---
+
+## 3. Mathematical Optimization & Traffic Engineering Formulations
+
+### Priority Score Formula ($P_d$)
+For each approach lane $d \in \{\text{North}, \text{East}, \text{South}, \text{West}\}$:
+
+$$P_d = w_q \cdot \left(\frac{Q_d}{Q_{\max}}\right) + w_w \cdot \left(\frac{W_d}{W_{\max}}\right) + w_s \cdot \left(\frac{c_d}{c_{\text{starve}}}\right)^{1.5} + \epsilon_d$$
+
+Where:
+- $Q_d$: Current queued vehicle count ($\text{vehicles}$).
+- $Q_{\max} = 60$: Maximum single-lane capacity scaling factor.
+- $W_d$: Accumulated vehicle waiting time ($\text{seconds}$).
+- $W_{\max} = 90\text{s}$: Maximum waiting time normalization threshold.
+- $c_d$: Number of consecutive full cycles lane $d$ has been denied a green signal.
+- $c_{\text{starve}} = 3$: Starvation cycle threshold (non-linear penalty prevents starvation of low-volume approaches).
+- $\epsilon_d$: Small deterministic tie-breaker based on approach index ($\epsilon_d = 0.001 \times \text{idx}_d$).
+- Weights: $w_q = 0.45$, $w_w = 0.35$, $w_s = 0.20$ ($w_q + w_w + w_s = 1.0$).
+
+### Dynamic Green Phase Duration ($T_g$)
+When a new approach $d^*$ is chosen to receive green:
+
+$$T_g = \text{clamp}\left(T_{\min}, T_{\max}, T_{\min} + \text{round}\left((T_{\max} - T_{\min}) \times \frac{P_{d^*}}{\sum_{k} P_k}\right)\right)$$
+
+Where $T_{\min} = 8\text{s}$ (configurable) and $T_{\max} = 35\text{s}$ (configurable).
+
+### Safety Clearance State Machine
+Every transition between competing approaches strictly adheres to:
+
+$$\text{GREEN } (T_g\text{s}) \;\longrightarrow\; \text{YELLOW } (3\text{s}) \;\longrightarrow\; \text{ALL-RED } (1\text{s}) \;\longrightarrow\; \text{NEXT GREEN } (T_g'\text{s})$$
+
+Safety Invariant: At no point can conflicting approaches receive simultaneously active green or yellow signals.
+
+---
+
+## 4. SQLite Database Schema & Persistence
 
 The persistent storage layer uses Python's standard library `sqlite3` in WAL mode (`traffic_management.db`).
 
@@ -124,97 +217,95 @@ The persistent storage layer uses Python's standard library `sqlite3` in WAL mod
    - `fixed_throughput`, `adaptive_throughput`, `throughput_increase_pct`.
    - `fixed_avg_queue`, `adaptive_avg_queue`.
 
-### Inspecting and Resetting the Database
-
-- **Inspect via Python CLI**:
-  ```powershell
-  python -c "import sqlite3; conn = sqlite3.connect('traffic_management.db'); print(conn.execute('SELECT COUNT(*) FROM intersection_snapshots').fetchone())"
-  ```
-- **Inspect via GUI**: Open `traffic_management.db` in [DB Browser for SQLite](https://sqlitebrowser.org/) or VS Code SQLite Extension.
-- **Reset Database**:
-  - Click **Reset DB** on the dashboard, or
-  - Send POST request: `POST /api/database/reset`, or
-  - Delete `traffic_management.db` file (will auto-recreate on next launch).
-
 ---
 
-## 3. Mathematical Analytics & Metric Definitions
-
-All analytics are calculated strictly from recorded database data (`database/analytics.py`):
-
-1. **Average Waiting Time**:
-   $$\bar{W} = \frac{1}{N} \sum_{i=1}^{N} \text{avg\_wait\_seconds}_i$$
-   The arithmetic mean of vehicle delay (in seconds) experienced by vehicles waiting at red signals across all recorded intersection snapshots.
-2. **Average Queue Length**:
-   $$\bar{Q} = \frac{1}{N} \sum_{i=1}^{N} \text{total\_vehicles}_i$$
-   The average number of queued vehicles held at intersection approaches across recorded snapshots.
-3. **Simulated Throughput**:
-   $$\Delta T = \max(\text{total\_passed}) - \min(\text{total\_passed})$$
-   Net count of simulated vehicles successfully processed and discharged through green phases during the evaluation window.
-4. **Congestion Distribution**:
-   $$\% \text{ Level} = \left(\frac{N_{\text{Level}}}{N_{\text{total}}}\right) \times 100\%$$
-   The percentage breakdown of intersection snapshots categorized into `Low` ($<28$ vehicles), `Moderate` ($28–57$ vehicles), and `Heavy` ($\ge 58$ vehicles).
-5. **Signal Utilization**:
-   $$\% \text{ Green}_d = \left(\frac{\text{Ticks with Signal = GREEN on Lane } d}{\text{Total Ticks on Lane } d}\right) \times 100\%$$
-   Measures green wave allocation efficiency across the four approaches.
-6. **Fixed-Time Baseline vs. Adaptive Comparison**:
-   - Compares an equivalent fixed-timing round-robin controller (18s fixed green per approach) against the adaptive optimizer over identical duration ($60\text{ ticks}$) and identical random seeds ($42$).
-   - Calculates percentage delay reduction:
-     $$\Delta W_{\%} = \left(\frac{W_{\text{fixed}} - W_{\text{adaptive}}}{W_{\text{fixed}}}\right) \times 100\%$$
-
----
-
-## 4. How to Run on Windows / VS Code
+## 5. How to Run on Windows / VS Code
 
 ### Using the Launcher Scripts
+Open PowerShell in the project directory:
 ```powershell
 .\run.ps1
 ```
-or via Command Prompt:
+or via Windows Command Prompt:
 ```cmd
 run.bat
 ```
 
 ### Running with Python Directly
 ```powershell
-python app.py
+& "C:\ProgramData\anaconda3\python.exe" app.py
 ```
-*(or with Anaconda Python: `& "C:\ProgramData\anaconda3\python.exe" app.py`)*
+*(or with standard python if on PATH: `python app.py`)*
 
-Open **http://127.0.0.1:5000** in your browser.
+Open **http://127.0.0.1:5000** in your browser (Chrome, Edge, Firefox).
 
 ---
 
-## 5. Running the Automated Test Suite
+## 6. Examiner Demonstration Script (Step-by-Step Viva Guide)
 
-A complete test suite of **34 unit and integration tests** verifies database initialization, persistence, analytics calculations, baseline benchmarks, and API endpoints:
+Follow this 5-minute practical walkthrough during an external examination or project viva:
+
+### Step 1: Explain Problem & Software Architecture (1 min)
+- Point out the **SIMULATION MODE** indicator in the header and sidebar.
+- State clearly: *"This is a 100% software-based traffic management system using Python, Flask, SQLite, and autonomous stochastic IoT simulation. No physical microcontrollers or hardware are claimed or required."*
+- Show the **4 Intersections** (J1 Downtown North, J2 Business Bay, J3 University Sector, J4 Residential Arterial).
+
+### Step 2: Demonstrate Adaptive Signal Optimization (1 min)
+- Explain the 3-Aspect signal lights: **Green (Flow)** $\to$ **Yellow (3s clearance)** $\to$ **All-Red (1s box clearance)** $\to$ **Green**.
+- Point to the live **Score Badge** on each approach (e.g., `Score: 0.65`). Explain the formula combining queue occupancy ($45\%$), waiting delay ($35\%$), and anti-starvation penalty ($20\%$).
+- Click the **+5 Cars** button on a red approach (e.g., West approach). Notice the score jump immediately and watch the adaptive engine prioritize that approach when the active green expires.
+
+### Step 3: Demonstrate Emergency Vehicle Preemption (1 min)
+- Click **🚨 Emergency Preemption**.
+- Choose intersection **J1** and approach **North**.
+- Observe: The system truncates any competing green, enforces the 3s yellow and 1s all-red safety clearance, and immediately allocates a high-priority green corridor for the emergency vehicle with score `999 (EMERG)`.
+- Point out the logged audit entry in the **Event Log** panel.
+
+### Step 4: Run the Comparative Benchmark (1 min)
+- Scroll down to the **Empirical Performance Benchmark** card.
+- Click **⚡ Run 60s Benchmark Comparison**.
+- The engine executes a side-by-side run of Fixed-Time round-robin vs Adaptive Optimization under an identical random seed ($42$).
+- Show the examiner the measured results:
+  - Fixed-Time Delay vs Adaptive Delay.
+  - Percentage Delay Reduction (typically **$25\%\text{ to }40\%$** improvement).
+  - Throughput gains.
+- Highlight that the benchmark results are permanently stored in SQLite table `baseline_comparisons`.
+
+### Step 5: Verify SQLite Persistence & Restart Resilience (1 min)
+- Note the active **Session ID** in the sidebar (e.g. `sess_...`).
+- Stop the server in terminal (`Ctrl+C`) and restart it (`.\run.ps1`).
+- Refresh the browser: all previous sessions, snapshots, and benchmark comparisons remain intact in `traffic_management.db`.
+
+---
+
+## 7. Running the Automated Test Suite
+
+A complete test suite of **35 unit and integration tests** verifies database schema, persistence, priority scoring, safety clearance, and dashboard API routes:
 
 ```powershell
 & "C:\ProgramData\anaconda3\python.exe" -m pytest -v
 ```
 
 ### Verified Test Categories:
-- `test_database_initialization_and_tables`: Verifies all 6 tables, indexes, and foreign keys.
-- `test_persistence_of_sessions_and_snapshots`: Verifies insertion and retrieval of session telemetry.
-- `test_analytics_calculations_from_db`: Verifies mathematical accuracy of average wait, queue, and congestion distribution from database records.
-- `test_baseline_comparison_runner`: Verifies side-by-side comparative benchmark execution and delay reduction calculations.
-- `test_analytics_api_endpoints`: Integration test for all analytics API routes.
-- `test_queue_counts_never_negative`: Invariant that vehicle queues and waiting times are strictly non-negative.
-- `test_green_duration_bounds`: Clamping within $[T_{\min}, T_{\max}]$.
-- `test_explicit_phase_transitions_green_yellow_allred`: Full cycle through Green $\to$ Yellow $\to$ All-Red $\to$ Green.
-- `test_conflict_prevention_check`: Ensures no conflicting approaches hold green/yellow concurrently.
-- `test_emergency_preemption_lifecycle`: Rapid truncation of green and immediate clearance for emergency vehicles.
+- `tests/test_api.py`: Tests all 12 REST API endpoints, payload validation, and HTTP responses.
+- `tests/test_database.py`: Tests SQLite table creation, WAL mode, session tracking, and SQL metric aggregation.
+- `tests/test_models.py`: Tests dataclass invariants and serialization.
+- `tests/test_signal_optimizer.py`: Tests priority scoring, Webster-style green allocation, anti-starvation, and conflict prevention.
+- `tests/test_simulation.py`: Tests deterministic seeds, non-negative queues, phase transitions, and emergency preemption.
+- `tests/test_e2e.py`: Tests full end-to-end dashboard client flow.
 
 ---
 
-## 6. REST API Reference
+## 8. REST API Reference
 
 | Endpoint | Method | Example Payload / Query | Description |
 | :--- | :---: | :--- | :--- |
+| `GET /` | `GET` | *None* | Serves the single-page application dashboard. |
 | `GET /api/state` | `GET` | *None* | Current live network state and active session ID. |
 | `GET /api/health` | `GET` | *None* | Operational health check. |
-| `GET /api/analytics/sessions` | `GET` | `?limit=30` | Lists historical simulation sessions stored in SQLite. |
+| `GET /api/analytics/chart-data` | `GET` | `?limit=40` | Timeline time-series for native canvas charts. |
 | `GET /api/analytics/summary` | `GET` | `?session_id=sess_...&junction_id=J1` | Aggregated analytics (avg wait, queue, throughput, congestion dist, utilization) from DB data. |
+| `GET /api/analytics/sessions` | `GET` | `?limit=30` | Lists historical simulation sessions stored in SQLite. |
 | `GET /api/analytics/history` | `GET` | `?session_id=sess_...&limit=150` | Historical snapshot time-series data. |
 | `GET /api/analytics/signal-logs` | `GET` | `?session_id=sess_...&junction_id=J1` | Signal phase transition audit trail. |
 | `GET /api/analytics/events` | `GET` | `?session_id=sess_...&kind=emergency` | Audit events stored in SQLite. |
@@ -228,25 +319,4 @@ A complete test suite of **34 unit and integration tests** verifies database ini
 | `POST /api/signal` | `POST` | `{"junction": "J1", "direction": "East"}` | Manual signal override (Manual mode only). |
 | `POST /api/traffic` | `POST` | `{"junction": "J1", "direction": "North", "amount": 5}` | Inject simulated vehicles into a lane approach. |
 | `POST /api/settings` | `POST` | `{"min_green": 10, "max_green": 40}` | Configure min and max green duration bounds. |
-
----
-
-## 7. Key Demonstration Points for Examiners
-
-1. **Persistent SQLite Telemetry**:
-   - Point to the **Session ID** displayed in the sidebar.
-   - Restart the Flask server (`Ctrl+C` and restart), then show that past sessions and historical metrics remain intact in the database.
-2. **Side-by-Side Baseline Comparison Benchmark**:
-   - Click **⚡ Run 60s Benchmark Comparison**.
-   - Show the examiner the side-by-side empirical results:
-     - Fixed-Time Baseline Average Delay vs. Adaptive Signal Average Delay.
-     - Percentage Delay Reduction (typically **$25\%\text{ to }40\%$ improvement**).
-     - Throughput cleared and queue reduction.
-3. **Database Metric Integrity**:
-   - Explain that all metrics shown in the analytics card are calculated strictly via SQL aggregations (`AVG`, `MAX`, `COUNT`) from `intersection_snapshots` and `lane_metrics`, rather than arbitrary runtime variables.
-4. **Transparent Priority Score**:
-   - Explain the live `Score: X.XX` badge on each approach ($0.45 \cdot \text{Queue} + 0.35 \cdot \text{Wait} + 0.20 \cdot \text{Starvation}$).
-5. **3-Phase Safety Clearances**:
-   - Watch the signal cycle through **GREEN** $\to$ **YELLOW (3s amber)** $\to$ **ALL-RED (1s box clearance)** $\to$ **GREEN**.
-6. **Emergency Preemption**:
-   - Click **🚨 Emergency Preemption**, dispatch on `J1 North`, and watch the current green truncate to yellow clearance, granting priority passage.
+| `POST /api/tick` | `POST` | `{}` | Advances simulation by one discrete tick (manual stepping). |

@@ -316,3 +316,4 @@ class TrafficAnalytics:
         self.repo.save_baseline_comparison(comparison_data)
 
         return comparison_data
+

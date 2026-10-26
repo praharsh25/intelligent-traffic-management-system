@@ -104,3 +104,4 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_time ON intersection_snapshots(timestam
 CREATE INDEX IF NOT EXISTS idx_lane_metrics_lookup ON lane_metrics(session_id, junction_id, direction);
 CREATE INDEX IF NOT EXISTS idx_signal_logs_lookup ON signal_phase_logs(session_id, junction_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_events_lookup ON audit_event_logs(session_id, timestamp);
+

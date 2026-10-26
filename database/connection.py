@@ -79,3 +79,4 @@ def reset_db(db_path: Optional[str] = None) -> None:
         conn.execute("PRAGMA foreign_keys = ON;")
 
     init_db(target_path)
+

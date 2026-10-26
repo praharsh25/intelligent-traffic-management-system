@@ -231,6 +231,41 @@ class TrafficRepository:
         with get_db_connection(self.db_path) as conn:
             return conn.execute(query, params).fetchall()
 
+    def get_network_timeline(
+        self,
+        session_id: Optional[str] = None,
+        limit: int = 60,
+    ) -> List[Dict[str, Any]]:
+        """Queries aggregated network timeline metrics across all intersections grouped by tick for charts."""
+        clauses = []
+        params = []
+        if session_id:
+            clauses.append("session_id = ?")
+            params.append(session_id)
+
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        query = f"""
+            SELECT
+                tick,
+                timestamp,
+                SUM(total_vehicles) as total_vehicles,
+                SUM(total_passed) as total_passed,
+                ROUND(AVG(avg_wait_seconds), 1) as avg_wait_seconds,
+                SUM(CASE WHEN congestion_level = 'Heavy' THEN 1 ELSE 0 END) as heavy_count
+            FROM (
+                SELECT * FROM intersection_snapshots
+                {where}
+                ORDER BY id DESC
+                LIMIT ?
+            ) sub
+            GROUP BY tick, timestamp
+            ORDER BY tick ASC
+        """
+        params.append(limit * 4)  # 4 intersections per tick
+
+        with get_db_connection(self.db_path) as conn:
+            return conn.execute(query, params).fetchall()
+
     def get_signal_logs(
         self,
         session_id: Optional[str] = None,

@@ -1,7 +1,7 @@
 /**
  * Intelligent Traffic Management System - Client Controller
  * Coordinates dashboard polling, UI updates, user controls, 3-phase signal display,
- * scenario switching, persistent SQLite analytics, and REST API communication.
+ * scenario switching, persistent SQLite analytics, native canvas charts, and REST API communication.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -9,6 +9,7 @@ let state = null;
 let toastTimer = null;
 let pollTimer = null;
 let analyticsTimer = null;
+let chartTimer = null;
 
 // Sanitize text inputs for safe HTML insertion
 function esc(str) {
@@ -25,6 +26,7 @@ function esc(str) {
 // Display transient feedback toasts
 function showToast(msg, isError = false) {
   const toastEl = $('toast');
+  if (!toastEl) return;
   toastEl.textContent = msg;
   toastEl.className = 'toast show' + (isError ? ' error' : '');
   clearTimeout(toastTimer);
@@ -55,12 +57,43 @@ async function apiCall(endpoint, payload = null) {
 function updateDashboard(newState) {
   state = newState;
 
-  // KPI Metrics
-  $('vehicles').textContent = newState.summary.vehicles.toLocaleString();
-  $('passed').textContent = newState.summary.passed.toLocaleString();
-  $('heavy').textContent = newState.summary.heavy;
-  $('tick').textContent = newState.tick.toLocaleString();
-  $('updated').textContent = new Date(newState.last_updated).toLocaleTimeString();
+  // KPI Overview Cards
+  if ($('active-junctions')) {
+    $('active-junctions').textContent = newState.summary.junctions || (newState.intersections ? newState.intersections.length : 4);
+  }
+  if ($('vehicles')) {
+    $('vehicles').textContent = newState.summary.vehicles.toLocaleString();
+  }
+  if ($('passed')) {
+    $('passed').textContent = newState.summary.passed.toLocaleString();
+  }
+  if ($('heavy')) {
+    $('heavy').textContent = newState.summary.heavy;
+  }
+  if ($('tick')) {
+    $('tick').textContent = newState.tick.toLocaleString();
+  }
+  if ($('updated')) {
+    $('updated').textContent = new Date(newState.last_updated).toLocaleTimeString();
+  }
+
+  // Network Average Delay & Peak Delay
+  if (newState.intersections && newState.intersections.length > 0) {
+    const totalWait = newState.intersections.reduce((acc, j) => acc + (j.avg_wait_seconds || 0), 0);
+    const netAvgWait = (totalWait / newState.intersections.length).toFixed(1);
+    if ($('avg-delay')) $('avg-delay').textContent = netAvgWait;
+
+    const peakWait = Math.max(0, ...newState.intersections.map((j) => j.avg_wait_seconds || 0));
+    if ($('peak-delay-label')) $('peak-delay-label').textContent = `● Peak delay: ${peakWait.toFixed(1)}s`;
+  }
+
+  // Congestion Status Label
+  if ($('congestion-status-label')) {
+    const heavyCount = newState.summary.heavy || 0;
+    $('congestion-status-label').textContent = heavyCount === 0
+      ? '● Smooth traffic flow'
+      : (heavyCount <= 2 ? '● Moderate traffic' : '● Heavy congestion');
+  }
 
   // Session ID badge
   const sessionBadge = $('session-badge');
@@ -71,17 +104,21 @@ function updateDashboard(newState) {
 
   // Engine Status & Speed
   const isRunning = newState.running;
-  $('engine').textContent = isRunning ? 'Running normally' : 'Paused by operator';
+  if ($('engine')) {
+    $('engine').textContent = isRunning ? 'Running normally' : 'Paused by operator';
+  }
   
   const livePill = $('live-pill');
-  if (isRunning) {
-    livePill.classList.remove('paused');
-    $('live').textContent = 'LIVE SIMULATION';
-    $('pause').textContent = 'Ⅱ Pause';
-  } else {
-    livePill.classList.add('paused');
-    $('live').textContent = 'SIMULATION PAUSED';
-    $('pause').textContent = '▶ Resume';
+  if (livePill) {
+    if (isRunning) {
+      livePill.classList.remove('paused');
+      $('live').textContent = 'LIVE SIMULATION';
+      $('pause').textContent = 'Ⅱ Pause';
+    } else {
+      livePill.classList.add('paused');
+      $('live').textContent = 'SIMULATION PAUSED';
+      $('pause').textContent = '▶ Resume';
+    }
   }
 
   // Step button is enabled when paused
@@ -104,7 +141,7 @@ function updateDashboard(newState) {
 
   // Speed label & buttons
   const speed = newState.speed || 1.0;
-  $('speed-label').textContent = `● ${speed}x Speed`;
+  if ($('speed-label')) $('speed-label').textContent = `● ${speed}x Speed`;
   document.querySelectorAll('.speed-btn').forEach((btn) => {
     btn.classList.toggle('selected', parseFloat(btn.dataset.speed) === speed);
   });
@@ -114,29 +151,33 @@ function updateDashboard(newState) {
   document.querySelectorAll('.scen-btn:not(.emergency-btn)').forEach((btn) => {
     btn.classList.toggle('selected', btn.dataset.scen === scenario);
   });
-  if (newState.scenario_info && newState.scenario_info.description) {
+  if (newState.scenario_info && newState.scenario_info.description && $('active-scenario-desc')) {
     $('active-scenario-desc').textContent = `${newState.scenario_info.name} — ${newState.scenario_info.description}`;
   }
 
   // Flow rate slider
-  if (newState.arrival_multiplier !== undefined) {
+  if (newState.arrival_multiplier !== undefined && $('flow')) {
     $('flow').value = newState.arrival_multiplier;
-    $('flowval').textContent = newState.arrival_multiplier;
+    if ($('flowval')) $('flowval').textContent = newState.arrival_multiplier;
   }
 
   // Operating Mode
-  $('auto').classList.toggle('selected', newState.auto_mode);
-  $('manual').classList.toggle('selected', !newState.auto_mode);
-  $('mode-desc').textContent = newState.auto_mode
-    ? 'Adaptive control dynamically evaluates normalized queue density, waiting times, and starvation penalties.'
-    : 'Manual mode enabled: operator commands specific approaches to turn green.';
+  if ($('auto')) $('auto').classList.toggle('selected', newState.auto_mode);
+  if ($('manual')) $('manual').classList.toggle('selected', !newState.auto_mode);
+  if ($('mode-desc')) {
+    $('mode-desc').textContent = newState.auto_mode
+      ? 'Adaptive mode optimizes green phases using normalized queue density, waiting times, and starvation prevention.'
+      : 'Manual mode enabled: operator commands specific approaches to turn green.';
+  }
 
   // Adaptive Timing Rules Inputs
-  $('min').value = newState.settings.min_green;
-  $('max').min = newState.settings.min_green;
-  $('max').value = Math.max(newState.settings.max_green, newState.settings.min_green);
-  $('minval').textContent = newState.settings.min_green;
-  $('maxval').textContent = $('max').value;
+  if ($('min') && $('max')) {
+    $('min').value = newState.settings.min_green;
+    $('max').min = newState.settings.min_green;
+    $('max').value = Math.max(newState.settings.max_green, newState.settings.min_green);
+    if ($('minval')) $('minval').textContent = newState.settings.min_green;
+    if ($('maxval')) $('maxval').textContent = $('max').value;
+  }
 
   // Intersections Grid & Event Log
   renderJunctions(newState.intersections, newState.auto_mode);
@@ -146,11 +187,15 @@ function updateDashboard(newState) {
 // Render intersection cards and approaches with 3-phase lights & priority scores
 function renderJunctions(junctions, isAuto) {
   const directions = ['North', 'East', 'South', 'West'];
-  const symbols = ['⌖', '⌘', '⇄', '◈'];
+  const dirMeta = {
+    North: { arrow: '↑', label: 'North' },
+    East:  { arrow: '→', label: 'East' },
+    South: { arrow: '↓', label: 'South' },
+    West:  { arrow: '←', label: 'West' },
+  };
 
   $('junction-grid').innerHTML = junctions
-    .map((j, i) => {
-      const symbol = symbols[i % symbols.length];
+    .map((j) => {
       const phase = j.current_phase || 'GREEN';
       const phaseRemaining = j.phase_remaining || 0;
       
@@ -161,11 +206,24 @@ function renderJunctions(junctions, isAuto) {
         phaseLabel = `PHASE: ALL-RED CLEARANCE (${phaseRemaining}s)`;
       }
 
+      // Approach signals for crossroad schematic
+      const nSig = (j.lanes.North && j.lanes.North.signal ? j.lanes.North.signal.toLowerCase() : 'red');
+      const eSig = (j.lanes.East && j.lanes.East.signal ? j.lanes.East.signal.toLowerCase() : 'red');
+      const sSig = (j.lanes.South && j.lanes.South.signal ? j.lanes.South.signal.toLowerCase() : 'red');
+      const wSig = (j.lanes.West && j.lanes.West.signal ? j.lanes.West.signal.toLowerCase() : 'red');
+
       return `
       <article class="junction" id="junction-${esc(j.id)}">
         <div class="jhead">
           <div class="jtitle">
-            <div class="jsymbol">${symbol}</div>
+            <!-- Visual Crossroads Schematic -->
+            <div class="mini-crossroad" title="Intersection Crossroad Layout (${j.name}) - Active Green: ${esc(j.active_direction)}">
+              <div class="road-arm north ${nSig}" title="North Approach: ${nSig.toUpperCase()}">↑</div>
+              <div class="road-arm west ${wSig}" title="West Approach: ${wSig.toUpperCase()}">←</div>
+              <div class="road-center ${phase.toLowerCase()}" title="Center Intersection: ${phase}">${phase === 'ALL_RED' ? '■' : '●'}</div>
+              <div class="road-arm east ${eSig}" title="East Approach: ${eSig.toUpperCase()}">→</div>
+              <div class="road-arm south ${sSig}" title="South Approach: ${sSig.toUpperCase()}">↓</div>
+            </div>
             <div>
               <h3>${esc(j.name)} ${j.emergency_active ? '🚨' : ''}</h3>
               <p>${esc(j.location)}</p>
@@ -189,8 +247,8 @@ function renderJunctions(junctions, isAuto) {
         </div>
 
         <div class="lanetitle">
-          <span>LANE APPROACH &amp; PRIORITY SCORE</span>
-          <span>LIVE ESTIMATE</span>
+          <span>APPROACH LANES &amp; 3-ASPECT SIGNALS</span>
+          <span>PRIORITY SCORE</span>
         </div>
 
         <div class="lanes">
@@ -201,6 +259,7 @@ function renderJunctions(junctions, isAuto) {
               const isYellow = lane.signal === 'YELLOW';
               const isRed = lane.signal === 'RED';
               const pct = Math.min(100, Math.round((lane.vehicles / 60) * 100));
+              const arrow = dirMeta[dir].arrow;
 
               let laneClass = '';
               if (isGreen) laneClass = 'active-green';
@@ -210,7 +269,10 @@ function renderJunctions(junctions, isAuto) {
               return `
               <div class="lane ${laneClass}">
                 <div class="lanetop">
-                  <span>${dir} ${lane.is_emergency ? '🚨' : ''}</span>
+                  <div class="dir-label">
+                    <span class="dir-arrow">${arrow}</span>
+                    <span>${dir} ${lane.is_emergency ? '🚨' : ''}</span>
+                  </div>
                   <!-- 3-State Traffic Light Head -->
                   <div class="light-box" title="Signal: ${lane.signal}">
                     <span class="light-dot red ${isRed ? 'on' : ''}"></span>
@@ -230,15 +292,15 @@ function renderJunctions(junctions, isAuto) {
                   ${isGreen ? lane.green_remaining + 's green' : (lane.waiting_seconds ? Math.round(lane.waiting_seconds) + 's wait' : lane.waiting + ' waiting')}
                 </div>
 
-                <div class="score-badge" title="Normalized Priority Demand Score">
+                <div class="score-badge" title="Normalized Priority Score (Formula: 0.45*Q + 0.35*W + 0.20*Starve)">
                   Score: ${lane.is_emergency ? '999 (EMERG)' : lane.priority_score}
                 </div>
 
-                <div class="bar">
+                <div class="bar" title="Queue occupancy vs 60 vehicle capacity">
                   <span style="width:${pct}%"></span>
                 </div>
 
-                <button class="inject-btn" data-inj-j="${esc(j.id)}" data-inj-d="${dir}" title="Inject +5 simulated vehicles">
+                <button class="inject-btn" data-inj-j="${esc(j.id)}" data-inj-d="${dir}" title="Inject +5 simulated vehicles to test adaptive response">
                   +5 Cars
                 </button>
               </div>`;
@@ -288,6 +350,7 @@ function renderJunctions(junctions, isAuto) {
         });
         updateDashboard(updated);
         showToast(`+5 simulated vehicles added to ${btn.dataset.injD} approach.`);
+        fetchChartData();
       } catch (err) {
         showToast(err.message, true);
       }
@@ -297,6 +360,7 @@ function renderJunctions(junctions, isAuto) {
 
 // Render system audit log events
 function renderEvents(events) {
+  if (!$('event-count') || !$('event-list')) return;
   $('event-count').textContent = `${events.length} EVENT${events.length === 1 ? '' : 'S'}`;
   if (!events.length) {
     $('event-list').innerHTML = '<p class="muted">No events recorded yet.</p>';
@@ -328,7 +392,7 @@ function renderEvents(events) {
     .join('');
 }
 
-// Fetch state from server
+// Fetch state snapshot from server
 async function fetchState() {
   try {
     const data = await apiCall('/api/state');
@@ -338,21 +402,39 @@ async function fetchState() {
   }
 }
 
-// Fetch SQLite analytical summary
+// Fetch SQLite timeline series for canvas charts
+async function fetchChartData() {
+  try {
+    const data = await apiCall('/api/analytics/chart-data');
+    if (data && data.timeline && window.trafficCharts) {
+      window.trafficCharts.renderQueueThroughput('chart-queue-throughput', data.timeline);
+      window.trafficCharts.renderWaitDelay('chart-wait-delay', data.timeline);
+    }
+  } catch (err) {
+    // Graceful fallback if chart data fails
+  }
+}
+
+// Fetch SQLite analytical summary and render Signal Utilization Chart
 async function fetchAnalyticsSummary() {
   try {
     const data = await apiCall('/api/analytics/summary');
     if (data && data.has_data) {
-      $('db-avg-wait').textContent = `${data.avg_wait_seconds}s`;
-      $('db-avg-queue').textContent = `${data.avg_queue_length}`;
-      $('db-samples').textContent = `Based on ${data.total_samples} snapshots`;
-      $('db-peak-queue').textContent = `Peak Queue: ${data.peak_queue_length}`;
-      $('cong-low').textContent = `${data.congestion_distribution.Low}%`;
-      $('cong-mod').textContent = `${data.congestion_distribution.Moderate}%`;
-      $('cong-heavy').textContent = `${data.congestion_distribution.Heavy}%`;
+      if ($('db-avg-wait')) $('db-avg-wait').textContent = `${data.avg_wait_seconds}s`;
+      if ($('db-avg-queue')) $('db-avg-queue').textContent = `${data.avg_queue_length}`;
+      if ($('db-samples')) $('db-samples').textContent = `Based on ${data.total_samples} snapshots`;
+      if ($('db-peak-queue')) $('db-peak-queue').textContent = `Peak Queue: ${data.peak_queue_length}`;
+      if ($('cong-low')) $('cong-low').textContent = `${data.congestion_distribution.Low}%`;
+      if ($('cong-mod')) $('cong-mod').textContent = `${data.congestion_distribution.Moderate}%`;
+      if ($('cong-heavy')) $('cong-heavy').textContent = `${data.congestion_distribution.Heavy}%`;
+
+      // Render Directional Signal Phase Utilization Chart
+      if (window.trafficCharts && data.signal_utilization) {
+        window.trafficCharts.renderSignalUtilization('chart-signal-util', data.signal_utilization);
+      }
     }
   } catch (err) {
-    // Graceful fallback if analytics fetch fails
+    // Graceful fallback
   }
 }
 
@@ -392,6 +474,7 @@ async function runBenchmark() {
     $('bench-seed-note').textContent = `Comparison ${cmp.comparison_id} · Seed ${cmp.seed} · ${cmp.scenario} · ${cmp.duration_ticks} ticks`;
     showToast('Benchmark completed and stored in SQLite database!');
     fetchAnalyticsSummary();
+    fetchChartData();
   } catch (err) {
     showToast(`Benchmark failed: ${err.message}`, true);
   } finally {
@@ -407,6 +490,7 @@ async function resetDatabase() {
     await apiCall('/api/database/reset', {});
     showToast('SQLite database re-initialized.');
     fetchAnalyticsSummary();
+    fetchChartData();
     fetchState();
   } catch (err) {
     showToast(err.message, true);
@@ -428,6 +512,7 @@ async function sendControl(action, extra = {}) {
     };
     showToast(msgs[action] || 'Command executed.');
     fetchAnalyticsSummary();
+    fetchChartData();
   } catch (err) {
     showToast(err.message, true);
   }
@@ -441,6 +526,7 @@ document.querySelectorAll('.scen-btn:not(.emergency-btn)').forEach((btn) => {
       const data = await apiCall('/api/scenario', { scenario: scen });
       updateDashboard(data);
       showToast(`Scenario changed to ${btn.textContent}.`);
+      fetchChartData();
     } catch (err) {
       showToast(err.message, true);
     }
@@ -448,75 +534,89 @@ document.querySelectorAll('.scen-btn:not(.emergency-btn)').forEach((btn) => {
 });
 
 // Emergency Preemption button
-$('dispatch-emerg-btn').onclick = async () => {
-  const jid = prompt(
-    'Dispatch Simulated Emergency Vehicle (Ambulance / Fire Engine)\n\nEnter target intersection ID (J1, J2, J3, or J4):',
-    'J1'
-  );
-  if (!jid) return;
-  const targetJ = jid.trim().toUpperCase();
+const emergBtn = $('dispatch-emerg-btn');
+if (emergBtn) {
+  emergBtn.onclick = async () => {
+    const jid = prompt(
+      'Dispatch Simulated Emergency Vehicle (Ambulance / Fire Engine)\n\nEnter target intersection ID (J1, J2, J3, or J4):',
+      'J1'
+    );
+    if (!jid) return;
+    const targetJ = jid.trim().toUpperCase();
 
-  const dir = prompt(
-    `Select approach direction for ${targetJ} (North, East, South, or West):`,
-    'North'
-  );
-  if (!dir) return;
-  const targetDir = dir.trim();
+    const dir = prompt(
+      `Select approach direction for ${targetJ} (North, East, South, or West):`,
+      'North'
+    );
+    if (!dir) return;
+    const targetDir = dir.trim();
 
-  try {
-    const data = await apiCall('/api/emergency', {
-      junction: targetJ,
-      direction: targetDir,
-    });
-    updateDashboard(data);
-    showToast(`🚨 Emergency vehicle dispatched on ${targetJ} ${targetDir}! Priority corridor initiated.`);
-  } catch (err) {
-    showToast(err.message, true);
-  }
-};
+    try {
+      const data = await apiCall('/api/emergency', {
+        junction: targetJ,
+        direction: targetDir,
+      });
+      updateDashboard(data);
+      showToast(`🚨 Emergency vehicle dispatched on ${targetJ} ${targetDir}! Priority corridor initiated.`);
+      fetchChartData();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+}
 
 // Flow rate slider
-$('flow').oninput = () => {
-  $('flowval').textContent = $('flow').value;
-};
+if ($('flow')) {
+  $('flow').oninput = () => {
+    if ($('flowval')) $('flowval').textContent = $('flow').value;
+  };
+}
 
 // Wire Global Control Listeners
-$('auto').onclick = () => sendControl('auto');
-$('manual').onclick = () => sendControl('manual');
-$('pause').onclick = () => sendControl(state && state.running ? 'pause' : 'resume');
-$('refresh').onclick = () => {
-  fetchState();
-  fetchAnalyticsSummary();
-};
-$('run-benchmark-btn').onclick = runBenchmark;
-$('db-reset-btn').onclick = resetDatabase;
+if ($('auto')) $('auto').onclick = () => sendControl('auto');
+if ($('manual')) $('manual').onclick = () => sendControl('manual');
+if ($('pause')) $('pause').onclick = () => sendControl(state && state.running ? 'pause' : 'resume');
+if ($('refresh')) {
+  $('refresh').onclick = () => {
+    fetchState();
+    fetchAnalyticsSummary();
+    fetchChartData();
+  };
+}
+if ($('run-benchmark-btn')) $('run-benchmark-btn').onclick = runBenchmark;
+if ($('db-reset-btn')) $('db-reset-btn').onclick = resetDatabase;
 
 // Single manual step button
-$('step-btn').onclick = async () => {
-  try {
-    const data = await apiCall('/api/tick', {});
-    updateDashboard(data);
-    showToast('Simulation advanced by 1 step.');
-    fetchAnalyticsSummary();
-  } catch (err) {
-    showToast(err.message, true);
-  }
-};
+if ($('step-btn')) {
+  $('step-btn').onclick = async () => {
+    try {
+      const data = await apiCall('/api/tick', {});
+      updateDashboard(data);
+      showToast('Simulation advanced by 1 step.');
+      fetchAnalyticsSummary();
+      fetchChartData();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+}
 
 // Reset with optional deterministic random seed prompt
-$('reset').onclick = () => {
-  const seedInput = prompt(
-    'Reset simulation to initial state.\n\nOptionally enter an integer seed for repeatable exam demonstration (e.g., 42), or leave blank for dynamic seed:'
-  );
-  if (seedInput === null) return;
-  const trimmed = seedInput.trim();
-  const seed = trimmed === '' ? null : parseInt(trimmed, 10);
-  if (trimmed !== '' && isNaN(seed)) {
-    showToast('Seed must be a valid integer.', true);
-    return;
-  }
-  sendControl('reset', { seed });
-};
+if ($('reset')) {
+  $('reset').onclick = () => {
+    const seedInput = prompt(
+      'Reset simulation to initial state.\n\nOptionally enter an integer seed for repeatable exam demonstration (e.g., 42), or leave blank for dynamic seed:'
+    );
+    if (seedInput === null) return;
+    const trimmed = seedInput.trim();
+    const seed = trimmed === '' ? null : parseInt(trimmed, 10);
+    if (trimmed !== '' && isNaN(seed)) {
+      showToast('Seed must be a valid integer.', true);
+      return;
+    }
+    sendControl('reset', { seed });
+  };
+}
 
 // Simulation Speed selector buttons
 document.querySelectorAll('.speed-btn').forEach((btn) => {
@@ -527,52 +627,60 @@ document.querySelectorAll('.speed-btn').forEach((btn) => {
 });
 
 // Timing sliders live labels
-$('min').oninput = () => {
-  $('minval').textContent = $('min').value;
-  $('max').min = $('min').value;
-  if (+$('max').value < +$('min').value) {
-    $('max').value = $('min').value;
-  }
-  $('maxval').textContent = $('max').value;
-};
+if ($('min') && $('max')) {
+  $('min').oninput = () => {
+    if ($('minval')) $('minval').textContent = $('min').value;
+    $('max').min = $('min').value;
+    if (+$('max').value < +$('min').value) {
+      $('max').value = $('min').value;
+    }
+    if ($('maxval')) $('maxval').textContent = $('max').value;
+  };
 
-$('max').oninput = () => {
-  $('maxval').textContent = $('max').value;
-};
+  $('max').oninput = () => {
+    if ($('maxval')) $('maxval').textContent = $('max').value;
+  };
+}
 
 // Settings form submission
-$('settings').onsubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const minVal = parseInt($('min').value, 10);
-    const maxVal = parseInt($('max').value, 10);
-    const flowVal = parseFloat($('flow').value);
+if ($('settings')) {
+  $('settings').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const minVal = parseInt($('min').value, 10);
+      const maxVal = parseInt($('max').value, 10);
+      const flowVal = parseFloat($('flow').value);
 
-    let data = await apiCall('/api/settings', {
-      min_green: minVal,
-      max_green: maxVal,
-    });
+      let data = await apiCall('/api/settings', {
+        min_green: minVal,
+        max_green: maxVal,
+      });
 
-    data = await apiCall('/api/flow-rate', {
-      multiplier: flowVal,
-    });
+      data = await apiCall('/api/flow-rate', {
+        multiplier: flowVal,
+      });
 
-    updateDashboard(data);
-    showToast('Adaptive timing rules and flow rate successfully applied.');
-  } catch (err) {
-    showToast(err.message, true);
-  }
-};
+      updateDashboard(data);
+      showToast('Adaptive timing rules and flow rate successfully applied.');
+      fetchChartData();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+}
 
 // Background polling loop
 function startPolling() {
   fetchState();
   fetchAnalyticsSummary();
+  fetchChartData();
   clearInterval(pollTimer);
   pollTimer = setInterval(fetchState, 1000);
   clearInterval(analyticsTimer);
-  analyticsTimer = setInterval(fetchAnalyticsSummary, 4000);
+  analyticsTimer = setInterval(fetchAnalyticsSummary, 3000);
+  clearInterval(chartTimer);
+  chartTimer = setInterval(fetchChartData, 2000);
 }
 
-// Start application
+// Initialize on page load
 startPolling();
